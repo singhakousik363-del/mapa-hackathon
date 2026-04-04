@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import CalendarPage from "./Calendar";
 import NotesPage from "./Notes";
 import TasksPage from "./Tasks";
-const API = "http://localhost:8080";
+const API = "https://mapa-api-875352080719.asia-south1.run.app";
 const INDIAN_LANGUAGES = [
   { code: "en-IN", label: "English", native: "English" },
   { code: "hi-IN", label: "Hindi", native: "\u0939\u093f\u0928\u094d\u0926\u0940" },
@@ -23,13 +23,7 @@ const AGENT_STYLES = {
   task_manager: { bg: "rgba(100,220,140,0.12)", color: "#f1f8e9", label: "Tasks", border: "rgba(100,220,100,0.3)" },
   notes: { bg: "rgba(150,200,255,0.12)", color: "#e3f2fd", label: "Notes", border: "rgba(100,180,255,0.3)" },
 };
-const SUGGESTIONS = [
-  "Add task: finish hackathon demo by April 8",
-  "Schedule team meeting tomorrow at 3pm",
-  "Save note: use gemini-2.5-flash for the project",
-  "What tasks do I have?",
-  "Show my calendar events",
-];
+const SUGGESTIONS = [];
 const MapaLogo = ({ size = 44 }) => (
   <svg width={size} height={size} viewBox="0 0 44 44" fill="none">
     <defs><radialGradient id="lg" cx="40%" cy="35%" r="65%"><stop offset="0%" stopColor="#fff9c4"/><stop offset="55%" stopColor="#ffb300"/><stop offset="100%" stopColor="#e65100"/></radialGradient></defs>
@@ -51,12 +45,56 @@ const GlobeIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="no
 const AGENT_ICONS = { calendar: <CalendarIcon/>, task_manager: <TaskIcon/>, notes: <NoteIcon/> };
 const activeStyle = { background:"linear-gradient(135deg,rgba(255,140,0,0.7),rgba(255,80,0,0.5))", border:"1px solid rgba(255,180,0,0.9)", color:"#ffe082", boxShadow:"0 0 18px rgba(255,140,0,0.6)", fontSize:12, padding:"6px 13px", borderRadius:8, fontFamily:"Lato,sans-serif", fontWeight:400, backdropFilter:"blur(4px)", display:"flex", alignItems:"center", gap:6, cursor:"pointer", transition:"all 0.2s" };
 const inactiveStyle = { background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,200,100,0.25)", color:"rgba(255,225,150,0.75)", boxShadow:"none", fontSize:12, padding:"6px 13px", borderRadius:8, fontFamily:"Lato,sans-serif", fontWeight:300, backdropFilter:"blur(4px)", display:"flex", alignItems:"center", gap:6, cursor:"pointer", transition:"all 0.2s" };
+// Notification system
+const requestNotificationPermission = async () => {
+  if ("Notification" in window) {
+    await Notification.requestPermission();
+  }
+};
+
+const sendNotification = (title, body) => {
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(title, {
+      body: body,
+      icon: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=64&q=80",
+      badge: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=32&q=80",
+    });
+  }
+};
+
+const checkReminders = (tasks, events) => {
+  const now = new Date();
+  const today = now.toISOString().split("T")[0];
+  const tomorrow = new Date(now.getTime() + 86400000).toISOString().split("T")[0];
+
+  tasks?.forEach(task => {
+    if (task.due_date === today && task.status === "pending") {
+      sendNotification("Task Due Today! ⚡", task.title);
+    }
+    if (task.due_date === tomorrow && task.status === "pending") {
+      sendNotification("Task Due Tomorrow 📋", task.title);
+    }
+    if (task.priority === "high" && task.status === "pending") {
+      sendNotification("High Priority Task 🔴", task.title);
+    }
+  });
+
+  events?.forEach(event => {
+    if (event.date === today) {
+      sendNotification("Event Today! 📅", event.title + (event.time ? " at " + event.time : ""));
+    }
+    if (event.date === tomorrow) {
+      sendNotification("Event Tomorrow 🗓️", event.title + (event.time ? " at " + event.time : ""));
+    }
+  });
+};
+
 export default function App() {
   const [messages, setMessages] = useState([{ role:"assistant", content:"Good morning! I am MAPA. Speak or type in any Indian language. Click Calendar, Tasks or Notes to manage your day!" }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
-  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [bgIndex, setBgIndex] = useState(0);
   const [selectedLang, setSelectedLang] = useState(INDIAN_LANGUAGES[0]);
   const [showLangMenu, setShowLangMenu] = useState(false);
