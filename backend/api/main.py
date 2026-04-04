@@ -41,7 +41,8 @@ async def chat(req: ChatRequest):
 @app.get("/session/{session_id}/summary")
 async def session_summary(session_id: str):
     from tools.firestore_client import FirestoreClient
-    tasks = await FirestoreClient("tasks").list_by_session(session_id)
-    events = await FirestoreClient("events").list_by_session(session_id)
-    notes = await FirestoreClient("notes").list_by_session(session_id)
+    # Return ALL data (not filtered by session) so UI always shows everything
+    tasks = await FirestoreClient("tasks").list_all()
+    events = await FirestoreClient("events").list_all()
+    notes = await FirestoreClient("notes").list_all()
     return {"session_id": session_id, "stats": {"tasks": len(tasks), "events": len(events), "notes": len(notes)}, "tasks": tasks, "events": events, "notes": notes}

@@ -47,3 +47,7 @@ class FirestoreClient:
             .where("session_id", "==", session_id)\
             .limit(limit).stream()
         return [d.to_dict() for d in docs]
+
+    async def list_all(self, limit: int = 100) -> list[dict]:
+        docs = _get_db().collection(self.col).limit(limit).stream()
+        return [d.to_dict() for d in docs]
