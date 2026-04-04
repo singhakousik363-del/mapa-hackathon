@@ -13,8 +13,8 @@ steps:
       - '--region=asia-south1'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--set-env-vars=GEMINI_API_KEY=$_GEMINI_API_KEY'
-substitutions:
-  _GEMINI_API_KEY: 'AIzaSyAiLrGOHg4cHfs5KD3a6uKL6CzDfRJsixw'
+      - '--set-env-vars=GEMINI_API_KEY=AIzaSyAiLrGOHg4cHfs5KD3a6uKL6CzDfRJsixw'
 images:
   - 'gcr.io/$PROJECT_ID/mapa-api'
+options:
+  logging: CLOUD_LOGGING_ONLY
