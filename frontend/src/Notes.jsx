@@ -27,8 +27,8 @@ export default function NotesPage({ sessionId, onClose }) {
   const [selectedNote, setSelectedNote] = useState(null);
 
   const fetchNotes = () => {
-    if (!sessionId) { setLoading(false); return; }
-    fetch(`${API}/session/${sessionId}/summary`)
+    // allow loading without session
+    fetch(`${API}/session/default/summary`)
       .then(r => r.json())
       .then(d => { setNotes(d.notes || []); setLoading(false); })
       .catch(() => setLoading(false));
