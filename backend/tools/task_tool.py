@@ -18,7 +18,7 @@ class TaskMCPTool(MCPTool):
                 task = {
                     "title": params.get("title", "Untitled"),
                     "priority": params.get("priority", "medium"),
-                    "due_date": params.get("due_date"),
+                    "due_date": params.get("due_date") or None,
                     "status": "pending",
                     "session_id": session_id,
                     "created_at": datetime.now(timezone.utc).isoformat(),
@@ -26,18 +26,26 @@ class TaskMCPTool(MCPTool):
                 doc_id = await self.db.create(task)
                 return ToolResult(True, {**task, "id": doc_id}, f"Task '{task['title']}' created", self.name)
             elif op == "list":
-                tasks = await self.db.list_by_session(session_id)
+                tasks = await self.db.list_all()
                 return ToolResult(True, tasks, f"{len(tasks)} tasks found", self.name)
             elif op == "complete":
-                tasks = await self.db.list_by_session(session_id)
+                tasks = await self.db.list_all()
                 title = params.get("title", "").lower()
-                match = next((t for t in tasks if title in t.get("title","").lower()), None)
+                match = next((t for t in tasks if title and title in t.get("title","").lower()), None)
                 if match:
-                    await self.db.update(match["id"], {"status": "completed"})
-                    return ToolResult(True, match, f"Task marked complete", self.name)
+                    await self.db.update(match["id"], {"status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()})
+                    return ToolResult(True, match, f"Task '{match['title']}' marked complete", self.name)
+                return ToolResult(False, None, "Task not found", self.name)
+            elif op == "delete":
+                tasks = await self.db.list_all()
+                title = params.get("title", "").lower()
+                match = next((t for t in tasks if title and title in t.get("title","").lower()), None)
+                if match:
+                    await self.db.delete(match["id"])
+                    return ToolResult(True, None, f"Task '{match['title']}' deleted", self.name)
                 return ToolResult(False, None, "Task not found", self.name)
             else:
-                tasks = await self.db.list_by_session(session_id)
+                tasks = await self.db.list_all()
                 return ToolResult(True, tasks, f"{len(tasks)} tasks found", self.name)
         except Exception as e:
             return ToolResult(False, None, str(e), self.name)

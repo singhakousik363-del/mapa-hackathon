@@ -19,18 +19,17 @@ class CalendarMCPTool(MCPTool):
                     "title": params.get("title", "Untitled Event"),
                     "date": params.get("date", datetime.now().strftime("%Y-%m-%d")),
                     "time": params.get("time", "09:00"),
-                    "duration_minutes": params.get("duration_minutes", 60),
                     "description": params.get("description", ""),
                     "session_id": session_id,
                     "created_at": datetime.now(timezone.utc).isoformat(),
                 }
                 doc_id = await self.db.create(event)
-                return ToolResult(True, {**event, "id": doc_id}, f"Event '{event['title']}' on {event['date']} at {event['time']}", self.name)
+                return ToolResult(True, {**event, "id": doc_id}, f"Event '{event['title']}' on {event['date']}", self.name)
             elif op == "list":
-                events = await self.db.list_by_session(session_id)
+                events = await self.db.list_all()
                 return ToolResult(True, events, f"{len(events)} events found", self.name)
             else:
-                events = await self.db.list_by_session(session_id)
+                events = await self.db.list_all()
                 return ToolResult(True, events, f"{len(events)} events found", self.name)
         except Exception as e:
             return ToolResult(False, None, str(e), self.name)
