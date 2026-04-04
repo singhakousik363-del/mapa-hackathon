@@ -1,15 +1,8 @@
 """
-MAPA - Google ADK Orchestrator
-Multi-Agent Productivity Assistant using Google Agent Development Kit (ADK)
-Judges will see: proper agent hierarchy, tool use, and ADK architecture
+MAPA - Google ADK Orchestrator (Fixed)
 """
-
-import os
-import json
-import asyncio
-import logging
+import os, json, asyncio, logging
 from datetime import datetime
-
 import google.generativeai as genai
 from tools.mcp_base import MCPRegistry
 from tools.calendar_tool import CalendarMCPTool
@@ -17,256 +10,118 @@ from tools.task_tool import TaskMCPTool
 from tools.notes_tool import NotesMCPTool
 
 logger = logging.getLogger(__name__)
-
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
-# ── ADK-style Agent base ──────────────────────────────────────────────────────
+LIST_KEYWORDS = ["show","list","get","display","view","see","what are","what's","whats","fetch","all my","my tasks","my events","my notes","any tasks","any events","any notes"]
+COMPLETE_KEYWORDS = ["complete","done","finished","mark as done","mark complete","check off"]
+DELETE_KEYWORDS = ["delete","remove","cancel","clear"]
+
+def detect_operation(message):
+    msg = message.lower()
+    if any(k in msg for k in COMPLETE_KEYWORDS): return "complete"
+    if any(k in msg for k in DELETE_KEYWORDS): return "delete"
+    if any(k in msg for k in LIST_KEYWORDS): return "list"
+    return ""
 
 class ADKAgent:
-    """Base class following Google ADK agent interface pattern."""
-    name: str = "base_agent"
-    description: str = ""
-
-    def __init__(self):
-        self.model = genai.GenerativeModel("gemini-2.5-flash")
-
-    async def run(self, task: str, context: dict) -> dict:
-        raise NotImplementedError
-
-
-# ── Specialist Sub-Agents ─────────────────────────────────────────────────────
+    name = "base_agent"
+    def __init__(self): self.model = genai.GenerativeModel("gemini-2.5-flash")
+    async def run(self, task, context): raise NotImplementedError
 
 class CalendarAgent(ADKAgent):
     name = "calendar_agent"
-    description = "Manages calendar events: create, list, update, delete events and reminders"
-
-    def __init__(self, tool: CalendarMCPTool):
-        super().__init__()
-        self.tool = tool
-
-    async def run(self, task: str, context: dict) -> dict:
-        session_id = context.get("session_id", "default")
-        prompt = f"""You are a calendar assistant. Extract the intent and details from:
-"{task}"
-
-Return ONLY valid JSON (no markdown):
-{{"operation": "create|list|delete", "title": "...", "date": "YYYY-MM-DD or empty", "time": "HH:MM or empty", "description": "..."}}"""
-
-        try:
-            resp = self.model.generate_content(prompt)
-            raw = resp.text.strip().replace("```json", "").replace("```", "").strip()
-            intent = json.loads(raw)
-        except Exception:
-            intent = {"operation": "list"}
-
-        params = {**intent, "session_id": session_id}
+    def __init__(self, tool): super().__init__(); self.tool = tool
+    async def run(self, task, context):
+        session_id = context.get("session_id","default")
+        operation = detect_operation(task); intent = {}
+        if not operation:
+            try:
+                resp = self.model.generate_content(f'Extract calendar intent from: "{task}"\nReturn ONLY JSON: {{"operation":"create|list|delete","title":"...","date":"YYYY-MM-DD or empty","time":"HH:MM or empty","description":"..."}} Default to list if unsure.')
+                intent = json.loads(resp.text.strip().replace("```json","").replace("```","").strip())
+                operation = intent.get("operation","list")
+            except: operation = "list"
+        if operation == "list": params = {"operation":"list","session_id":session_id}
+        elif operation == "create": params = {"operation":"create","title":intent.get("title",task),"date":intent.get("date",""),"time":intent.get("time",""),"description":intent.get("description",""),"session_id":session_id}
+        else: params = {"operation":operation,"session_id":session_id,**intent}
         result = await self.tool.call(params)
-        return {
-            "agent": self.name,
-            "success": result.success,
-            "message": result.message,
-            "data": result.data
-        }
-
+        return {"agent":self.name,"success":result.success,"message":result.message,"data":result.data}
 
 class TaskAgent(ADKAgent):
     name = "task_agent"
-    description = "Manages tasks and to-dos: create, complete, list, prioritize tasks"
-
-    def __init__(self, tool: TaskMCPTool):
-        super().__init__()
-        self.tool = tool
-
-    async def run(self, task: str, context: dict) -> dict:
-        session_id = context.get("session_id", "default")
-        prompt = f"""You are a task management assistant. Extract intent from:
-"{task}"
-
-Return ONLY valid JSON (no markdown):
-{{"operation": "create|list|complete|delete", "title": "...", "priority": "low|medium|high", "due_date": "YYYY-MM-DD or empty"}}"""
-
-        try:
-            resp = self.model.generate_content(prompt)
-            raw = resp.text.strip().replace("```json", "").replace("```", "").strip()
-            intent = json.loads(raw)
-        except Exception:
-            intent = {"operation": "create", "title": task, "priority": "medium"}
-
-        params = {**intent, "session_id": session_id}
+    def __init__(self, tool): super().__init__(); self.tool = tool
+    async def run(self, task, context):
+        session_id = context.get("session_id","default")
+        operation = detect_operation(task); intent = {}
+        if not operation:
+            try:
+                resp = self.model.generate_content(f'Extract task intent from: "{task}"\nReturn ONLY JSON: {{"operation":"create|list|complete|delete","title":"...","priority":"low|medium|high","due_date":"YYYY-MM-DD or empty"}} Use create if adding, list if viewing.')
+                intent = json.loads(resp.text.strip().replace("```json","").replace("```","").strip())
+                operation = intent.get("operation","create")
+            except: operation = "create"
+        if operation == "list": params = {"operation":"list","session_id":session_id}
+        elif operation == "complete": params = {"operation":"complete","session_id":session_id,**intent}
+        elif operation == "delete": params = {"operation":"delete","session_id":session_id,**intent}
+        else: params = {"operation":"create","title":intent.get("title",task),"priority":intent.get("priority","medium"),"due_date":intent.get("due_date",""),"session_id":session_id}
         result = await self.tool.call(params)
-        return {
-            "agent": self.name,
-            "success": result.success,
-            "message": result.message,
-            "data": result.data
-        }
-
+        return {"agent":self.name,"success":result.success,"message":result.message,"data":result.data}
 
 class NotesAgent(ADKAgent):
     name = "notes_agent"
-    description = "Manages notes: create, search, list, update notes and memos"
-
-    def __init__(self, tool: NotesMCPTool):
-        super().__init__()
-        self.tool = tool
-
-    async def run(self, task: str, context: dict) -> dict:
-        session_id = context.get("session_id", "default")
-        prompt = f"""You are a notes assistant. Extract intent from:
-"{task}"
-
-Return ONLY valid JSON (no markdown):
-{{"operation": "create|list|search", "title": "...", "content": "...", "query": "..."}}"""
-
-        try:
-            resp = self.model.generate_content(prompt)
-            raw = resp.text.strip().replace("```json", "").replace("```", "").strip()
-            intent = json.loads(raw)
-        except Exception:
-            intent = {"operation": "create", "title": "Note", "content": task}
-
-        params = {**intent, "session_id": session_id}
+    def __init__(self, tool): super().__init__(); self.tool = tool
+    async def run(self, task, context):
+        session_id = context.get("session_id","default")
+        operation = detect_operation(task); intent = {}
+        if not operation:
+            try:
+                resp = self.model.generate_content(f'Extract notes intent from: "{task}"\nReturn ONLY JSON: {{"operation":"create|list|search","title":"...","content":"...","query":"..."}} Use create if saving, list if viewing.')
+                intent = json.loads(resp.text.strip().replace("```json","").replace("```","").strip())
+                operation = intent.get("operation","create")
+            except: operation = "create"
+        if operation == "list": params = {"operation":"list","session_id":session_id}
+        elif operation == "search": params = {"operation":"search","query":intent.get("query",task),"session_id":session_id}
+        else:
+            content = task
+            for p in ["note:","note -","note that","jot down","write down"]:
+                if p in task.lower(): content = task[task.lower().index(p)+len(p):].strip(); break
+            params = {"operation":"create","title":intent.get("title",content[:50] or "Note"),"content":intent.get("content",content),"session_id":session_id}
         result = await self.tool.call(params)
-        return {
-            "agent": self.name,
-            "success": result.success,
-            "message": result.message,
-            "data": result.data
-        }
+        return {"agent":self.name,"success":result.success,"message":result.message,"data":result.data}
 
-
-# ── ADK Orchestrator (Root Agent) ─────────────────────────────────────────────
-
-class OrchestratorAgent(ADKAgent):
-    """
-    Root agent following Google ADK multi-agent pattern.
-    Routes tasks to specialist sub-agents based on intent classification.
-    """
-    name = "orchestrator"
-    description = "MAPA root agent — routes to calendar, task, and notes sub-agents"
-
+class OrchestratorAgent:
     def __init__(self):
-        super().__init__()
-        # MCP tool registry (kept for compatibility)
+        self.model = genai.GenerativeModel("gemini-2.5-flash")
         self.registry = MCPRegistry()
-        calendar_tool = CalendarMCPTool()
-        task_tool = TaskMCPTool()
-        notes_tool = NotesMCPTool()
-        self.registry.register(calendar_tool)
-        self.registry.register(task_tool)
-        self.registry.register(notes_tool)
+        ct = CalendarMCPTool(); tt = TaskMCPTool(); nt = NotesMCPTool()
+        self.registry.register(ct); self.registry.register(tt); self.registry.register(nt)
+        self.sub_agents = {"calendar_agent":CalendarAgent(ct),"task_agent":TaskAgent(tt),"notes_agent":NotesAgent(nt)}
+        self._sessions = {}
 
-        # ADK sub-agent team
-        self.sub_agents = {
-            "calendar_agent": CalendarAgent(calendar_tool),
-            "task_agent": TaskAgent(task_tool),
-            "notes_agent": NotesAgent(notes_tool),
-        }
+    def _add_history(self, sid, role, content):
+        self._sessions.setdefault(sid,[]).append({"role":role,"content":content,"timestamp":datetime.utcnow().isoformat()})
+        self._sessions[sid] = self._sessions[sid][-20:]
 
-        # Conversation memory (per session)
-        self._sessions: dict[str, list] = {}
+    def _classify_agents(self, message):
+        msg = message.lower(); agents = []
+        if any(w in msg for w in ["calendar","event","schedule","meeting","appointment","remind","today","tomorrow","next week","my events","any events"]): agents.append("calendar_agent")
+        if any(w in msg for w in ["task","todo","to-do","to do","deadline","priority","submit","create task","add task","mark","my tasks","any tasks"]): agents.append("task_agent")
+        if any(w in msg for w in ["note","memo","write down","jot","idea","draft","remember","my notes","any notes"]): agents.append("notes_agent")
+        if not agents and any(w in msg for w in ["show","list","display","all","everything"]): agents = ["task_agent","calendar_agent","notes_agent"]
+        return agents or ["task_agent"]
 
-    def _get_history(self, session_id: str) -> list:
-        return self._sessions.get(session_id, [])
-
-    def _add_to_history(self, session_id: str, role: str, content: str):
-        if session_id not in self._sessions:
-            self._sessions[session_id] = []
-        self._sessions[session_id].append({
-            "role": role,
-            "content": content,
-            "timestamp": datetime.utcnow().isoformat()
-        })
-        # Keep last 20 turns
-        self._sessions[session_id] = self._sessions[session_id][-20:]
-
-    def _classify_intent(self, message: str) -> list[str]:
-        """
-        ADK-style intent router: classifies which sub-agents to invoke.
-        Returns list of agent names (supports multi-agent parallel execution).
-        """
-        msg = message.lower()
-
-        agents = []
-
-        # Calendar signals
-        if any(w in msg for w in ["calendar", "event", "schedule", "meeting", "appointment",
-                                   "remind", "when", "date", "time", "today", "tomorrow",
-                                   "next week", "free slot"]):
-            agents.append("calendar_agent")
-
-        # Task signals
-        if any(w in msg for w in ["task", "todo", "to-do", "to do", "complete", "finish",
-                                   "done", "deadline", "priority", "work", "submit",
-                                   "create task", "add task", "mark"]):
-            agents.append("task_agent")
-
-        # Notes signals
-        if any(w in msg for w in ["note", "memo", "write down", "remember", "jot",
-                                   "save", "idea", "draft", "document"]):
-            agents.append("notes_agent")
-
-        # Default: task agent handles general requests
-        if not agents:
-            agents.append("task_agent")
-
-        return agents
-
-    async def run(self, user_message: str, session_id: str) -> dict:
-        """
-        ADK-style run: classify → dispatch → synthesize.
-        Supports parallel sub-agent execution.
-        """
-        self._add_to_history(session_id, "user", user_message)
-
-        # Step 1: Intent classification
-        target_agents = self._classify_intent(user_message)
-        logger.info(f"[ADK] Routing to agents: {target_agents}")
-
-        # Step 2: Parallel sub-agent execution (ADK pattern)
-        context = {"session_id": session_id}
-        tasks = [
-            self.sub_agents[agent_name].run(user_message, context)
-            for agent_name in target_agents
-            if agent_name in self.sub_agents
-        ]
-        agent_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Step 3: Collect results
+    async def run(self, user_message, session_id):
+        self._add_history(session_id,"user",user_message)
+        target_agents = self._classify_agents(user_message)
+        logger.info(f"[ADK] '{user_message[:50]}' → {target_agents}")
+        context = {"session_id":session_id}
+        raw_results = await asyncio.gather(*[self.sub_agents[a].run(user_message,context) for a in target_agents], return_exceptions=True)
         results = {}
-        for agent_name, result in zip(target_agents, agent_results):
-            if isinstance(result, Exception):
-                results[agent_name] = {"success": False, "message": str(result), "data": None}
-            else:
-                results[agent_name] = result
-
-        # Step 4: Synthesize final response
-        history = self._get_history(session_id)
-        history_text = "\n".join([f"{h['role']}: {h['content']}" for h in history[-6:]])
-
-        synthesis_prompt = f"""You are MAPA, a friendly multi-agent productivity assistant.
-
-Conversation history:
-{history_text}
-
-Agent results:
-{json.dumps(results, default=str, indent=2)}
-
-Write a natural, helpful response to the user summarizing what was done.
-Be concise and friendly. Do NOT use JSON or markdown."""
-
+        for a, r in zip(target_agents, raw_results):
+            results[a] = {"success":False,"message":str(r),"data":None} if isinstance(r,Exception) else r
+        history_text = "\n".join([f"{h['role']}: {h['content']}" for h in self._sessions.get(session_id,[])[-4:]])
         try:
-            synthesis = self.model.generate_content(synthesis_prompt)
+            synthesis = self.model.generate_content(f"""You are MAPA, a friendly AI productivity assistant.\nConversation:\n{history_text}\nAgent results:\n{json.dumps(results,default=str,indent=2)}\nWrite a clear friendly response. If list has items name them. If empty say so helpfully. No JSON. No markdown.""")
             response_text = synthesis.text.strip()
         except Exception as e:
-            response_text = f"I've processed your request. {list(results.values())[0].get('message', '')}"
-
-        self._add_to_history(session_id, "assistant", response_text)
-
-        return {
-            "response": response_text,
-            "agents_called": target_agents,
-            "results": results,
-            "adk_version": "1.0",
-            "session_id": session_id
-        }
+            response_text = list(results.values())[0].get("message","Done!")
+        self._add_history(session_id,"assistant",response_text)
+        return {"response":response_text,"agents_called":target_agents,"results":results,"adk_version":"1.0","session_id":session_id}
