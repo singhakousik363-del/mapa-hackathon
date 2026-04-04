@@ -46,3 +46,27 @@ async def session_summary(session_id: str):
     events = await FirestoreClient("events").list_all()
     notes = await FirestoreClient("notes").list_all()
     return {"session_id": session_id, "stats": {"tasks": len(tasks), "events": len(events), "notes": len(notes)}, "tasks": tasks, "events": events, "notes": notes}
+
+@app.delete("/tasks/{task_id}")
+async def delete_task(task_id: str):
+    from tools.firestore_client import FirestoreClient
+    db = FirestoreClient("tasks")
+    doc = await db.get(task_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Task not found")
+    await db.delete(task_id)
+    return {"success": True, "deleted": task_id}
+
+@app.patch("/tasks/{task_id}/complete")
+async def complete_task(task_id: str):
+    from tools.firestore_client import FirestoreClient
+    db = FirestoreClient("tasks")
+    await db.update(task_id, {"status": "completed"})
+    return {"success": True, "task_id": task_id}
+
+@app.delete("/notes/{note_id}")
+async def delete_note(note_id: str):
+    from tools.firestore_client import FirestoreClient
+    db = FirestoreClient("notes")
+    await db.delete(note_id)
+    return {"success": True, "deleted": note_id}

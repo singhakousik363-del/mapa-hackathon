@@ -140,7 +140,7 @@ export default function TasksPage({ sessionId, onClose }) {
             const pc = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
             return (
               <div key={task.id||i} className="task-card" style={{ background:"rgba(255,255,255,0.04)", border:`1px solid rgba(255,255,255,0.06)`, borderLeft:`3px solid ${pc.color}`, borderRadius:11, padding:"12px 14px", display:"flex", alignItems:"flex-start", gap:12 }}>
-                {/* Complete button */}
+                {/* Delete button */}<button onClick={()=>fetch(`${API}/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:`Delete task "${task.title}"`,session_id:sessionId})}).then(()=>setTimeout(fetchTasks,800))} title="Delete task" style={{width:26,height:26,borderRadius:"50%",border:"1.5px solid rgba(255,100,100,0.4)",background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"rgba(255,100,100,0.7)",flexShrink:0,marginTop:1,fontSize:14}}>✕</button>{/* Complete button */}
                 {filter==="pending" && (
                   <button onClick={()=>completeTask(task)} title="Mark complete" style={{ width:26, height:26, borderRadius:"50%", border:`1.5px solid ${pc.border}`, background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:pc.color, flexShrink:0, marginTop:1, transition:"all 0.18s" }}
                     onMouseEnter={e=>{e.currentTarget.style.background=pc.bg;}}
