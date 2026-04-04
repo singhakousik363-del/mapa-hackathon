@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const API = "http://localhost:8080";
+const API = "https://mapa-api-875352080719.asia-south1.run.app";
 
 const CloseIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -30,8 +30,8 @@ export default function TasksPage({ sessionId, onClose }) {
   const [saving, setSaving] = useState(false);
 
   const fetchTasks = () => {
-    if (!sessionId) { setLoading(false); return; }
-    fetch(`${API}/session/${sessionId}/summary`)
+    // allow loading without session
+    fetch(`${API}/session/default/summary`)
       .then(r => r.json())
       .then(d => { setTasks(d.tasks || []); setLoading(false); })
       .catch(() => setLoading(false));
