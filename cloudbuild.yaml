@@ -1,20 +1,20 @@
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/mapa-api', './backend']
+    args: ['build', '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/mapa/mapa-api', './backend']
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/mapa-api']
+    args: ['push', 'asia-south1-docker.pkg.dev/$PROJECT_ID/mapa/mapa-api']
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
       - 'mapa-api'
-      - '--image=gcr.io/$PROJECT_ID/mapa-api'
+      - '--image=asia-south1-docker.pkg.dev/$PROJECT_ID/mapa/mapa-api'
       - '--region=asia-south1'
       - '--platform=managed'
       - '--allow-unauthenticated'
       - '--set-env-vars=GEMINI_API_KEY=AIzaSyAiLrGOHg4cHfs5KD3a6uKL6CzDfRJsixw'
 images:
-  - 'gcr.io/$PROJECT_ID/mapa-api'
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/mapa/mapa-api'
 options:
   logging: CLOUD_LOGGING_ONLY
