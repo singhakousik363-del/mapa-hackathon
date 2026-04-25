@@ -245,7 +245,7 @@ This isn't just a hackathon demo — it's a usable product for the APAC region, 
 ## 👤 Author
 
 **Kousik Singha**
-Google Cloud Gen AI Academy APAC Hackathon 2026 — Cohort 2 Participant
+Google Cloud Gen AI Academy APAC Hackathon 2026 — Cohort 1 Participant
 
 ---
 
