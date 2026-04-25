@@ -221,6 +221,8 @@ mapa-hackathon/
 
 ---
 
+![MAPA Architecture](docs/architecture.svg)
+
 ## 🎬 Demo
 
 A 2-minute video walkthrough was submitted during Round 1. Key scenes:
