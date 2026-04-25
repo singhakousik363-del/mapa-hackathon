@@ -39,13 +39,18 @@ async def chat(req: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/session/{session_id}/summary")
-async def session_summary(session_id: str):
+async def session_summary(session_id: str, scope: str = "all"):
+    """Return data for a session. scope='all' returns everything, scope='session' filters by session_id."""
     from tools.firestore_client import FirestoreClient
-    # Return ALL data (not filtered by session) so UI always shows everything
-    tasks = await FirestoreClient("tasks").list_all()
-    events = await FirestoreClient("events").list_all()
-    notes = await FirestoreClient("notes").list_all()
-    return {"session_id": session_id, "stats": {"tasks": len(tasks), "events": len(events), "notes": len(notes)}, "tasks": tasks, "events": events, "notes": notes}
+    if scope == "session":
+        tasks = await FirestoreClient("tasks").list_by_session(session_id)
+        events = await FirestoreClient("events").list_by_session(session_id)
+        notes = await FirestoreClient("notes").list_by_session(session_id)
+    else:
+        tasks = await FirestoreClient("tasks").list_all()
+        events = await FirestoreClient("events").list_all()
+        notes = await FirestoreClient("notes").list_all()
+    return {"session_id": session_id, "scope": scope, "stats": {"tasks": len(tasks), "events": len(events), "notes": len(notes)}, "tasks": tasks, "events": events, "notes": notes}
 
 @app.delete("/tasks/{task_id}")
 async def delete_task(task_id: str):
