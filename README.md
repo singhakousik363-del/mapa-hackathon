@@ -3,13 +3,13 @@
 > **Build in APAC. Build for the world.**
 > A multi-agent AI productivity system built for the **Google Cloud Gen AI Academy APAC Hackathon 2026**.
 
-[![Live API](https://img.shields.io/badge/API-Live-brightgreen)](https://mapa-api-637668641799.asia-south1.run.app/docs)
+[![Live API](https://img.shields.io/badge/API-Live-brightgreen)](https://mapa-api-875352080719.asia-south1.run.app/docs)
 [![Frontend](https://img.shields.io/badge/Frontend-Live-blue)](https://gen-lang-client-0349644995.web.app)
 [![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Run-orange)](https://cloud.google.com/run)
 [![Gemini](https://img.shields.io/badge/Gemini-2.5%20Flash-purple)](https://ai.google.dev)
 
 **🔗 Live Demo:** https://gen-lang-client-0349644995.web.app
-**🔗 API Docs:** https://mapa-api-637668641799.asia-south1.run.app/docs
+**🔗 API Docs:** https://mapa-api-875352080719.asia-south1.run.app/docs
 
 ---
 
@@ -129,7 +129,7 @@ This project directly addresses every requirement in the Google Cloud Gen AI Aca
 
 ## 📊 API Endpoints
 
-All endpoints are live at `https://mapa-api-637668641799.asia-south1.run.app`
+All endpoints are live at `https://mapa-api-875352080719.asia-south1.run.app`
 
 | Endpoint | Method | Description |
 |---|---|---|
@@ -141,7 +141,7 @@ All endpoints are live at `https://mapa-api-637668641799.asia-south1.run.app`
 | `/tasks/{id}/complete` | PATCH | Mark a task as completed |
 | `/notes/{id}` | DELETE | Delete a note |
 
-Interactive API docs: https://mapa-api-637668641799.asia-south1.run.app/docs
+Interactive API docs: https://mapa-api-875352080719.asia-south1.run.app/docs
 
 ---
 
@@ -158,7 +158,7 @@ Visit **https://gen-lang-client-0349644995.web.app** and start chatting. Try the
 
 ### Option 2: Call the API directly
 ```bash
-curl -X POST https://mapa-api-637668641799.asia-south1.run.app/chat \
+curl -X POST https://mapa-api-875352080719.asia-south1.run.app/chat \
   -H "Content-Type: application/json" \
   -d '{"message":"create a task to finish my report by Friday","session_id":"demo"}'
 ```
