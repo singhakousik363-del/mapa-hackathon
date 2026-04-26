@@ -28,7 +28,7 @@ export default function NotesPage({ sessionId, onClose }) {
 
   const fetchNotes = () => {
     // allow loading without session
-    fetch(`${API}/session/default/summary`)
+    fetch(`${API}/session/${sessionId || "default"}/summary?scope=all`)
       .then(r => r.json())
       .then(d => { setNotes(d.notes || []); setLoading(false); })
       .catch(() => setLoading(false));
@@ -53,6 +53,16 @@ export default function NotesPage({ sessionId, onClose }) {
       setTimeout(fetchNotes, 800);
     } catch(e) {}
     setSaving(false);
+  };
+
+  const deleteNote = async (note) => {
+    if (!note?.id) return;
+    if (!confirm(`Delete note "${note.title || "Untitled"}"?`)) return;
+    try {
+      await fetch(`${API}/notes/${note.id}`, { method: "DELETE" });
+      setSelectedNote(null);
+      setTimeout(fetchNotes, 500);
+    } catch(e) {}
   };
 
   const filtered = notes.filter(n =>
@@ -144,7 +154,10 @@ export default function NotesPage({ sessionId, onClose }) {
                     {selectedNote.created_at ? new Date(selectedNote.created_at).toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"}) : ""}
                   </div>
                 </div>
-                <button onClick={()=>setSelectedNote(null)} style={{ width:30, height:30, borderRadius:8, border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.05)", cursor:"pointer", color:"rgba(255,230,170,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}><CloseIcon/></button>
+                <div style={{ display:"flex", gap:6 }}>
+                  <button onClick={()=>deleteNote(selectedNote)} title="Delete note" style={{ width:30, height:30, borderRadius:8, border:"1px solid rgba(255,100,80,0.25)", background:"rgba(255,80,60,0.1)", cursor:"pointer", color:"rgba(255,140,120,0.85)", display:"flex", alignItems:"center", justifyContent:"center" }}><TrashIcon/></button>
+                  <button onClick={()=>setSelectedNote(null)} style={{ width:30, height:30, borderRadius:8, border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.05)", cursor:"pointer", color:"rgba(255,230,170,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}><CloseIcon/></button>
+                </div>
               </div>
               {selectedNote.tags?.length>0 && (
                 <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:16 }}>

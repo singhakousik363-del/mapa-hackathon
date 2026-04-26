@@ -25,7 +25,7 @@ export default function TasksPage({ sessionId, onClose }) {
   const [activeMenu, setActiveMenu] = useState(null);
 
   const fetchTasks = () => {
-    fetch(`${API}/session/default/summary`)
+    fetch(`${API}/session/${sessionId || "default"}/summary?scope=all`)
       .then(r => r.json())
       .then(d => { setTasks(d.tasks || []); setLoading(false); })
       .catch(() => setLoading(false));

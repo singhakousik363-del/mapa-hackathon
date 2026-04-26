@@ -45,50 +45,6 @@ const GlobeIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="no
 const AGENT_ICONS = { calendar: <CalendarIcon/>, task_manager: <TaskIcon/>, notes: <NoteIcon/> };
 const activeStyle = { background:"linear-gradient(135deg,rgba(255,140,0,0.7),rgba(255,80,0,0.5))", border:"1px solid rgba(255,180,0,0.9)", color:"#ffe082", boxShadow:"0 0 18px rgba(255,140,0,0.6)", fontSize:12, padding:"6px 13px", borderRadius:8, fontFamily:"Lato,sans-serif", fontWeight:400, backdropFilter:"blur(4px)", display:"flex", alignItems:"center", gap:6, cursor:"pointer", transition:"all 0.2s" };
 const inactiveStyle = { background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,200,100,0.25)", color:"rgba(255,225,150,0.75)", boxShadow:"none", fontSize:12, padding:"6px 13px", borderRadius:8, fontFamily:"Lato,sans-serif", fontWeight:300, backdropFilter:"blur(4px)", display:"flex", alignItems:"center", gap:6, cursor:"pointer", transition:"all 0.2s" };
-// Notification system
-const requestNotificationPermission = async () => {
-  if ("Notification" in window) {
-    await Notification.requestPermission();
-  }
-};
-
-const sendNotification = (title, body) => {
-  if ("Notification" in window && Notification.permission === "granted") {
-    new Notification(title, {
-      body: body,
-      icon: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=64&q=80",
-      badge: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=32&q=80",
-    });
-  }
-};
-
-const checkReminders = (tasks, events) => {
-  const now = new Date();
-  const today = now.toISOString().split("T")[0];
-  const tomorrow = new Date(now.getTime() + 86400000).toISOString().split("T")[0];
-
-  tasks?.forEach(task => {
-    if (task.due_date === today && task.status === "pending") {
-      sendNotification("Task Due Today! ⚡", task.title);
-    }
-    if (task.due_date === tomorrow && task.status === "pending") {
-      sendNotification("Task Due Tomorrow 📋", task.title);
-    }
-    if (task.priority === "high" && task.status === "pending") {
-      sendNotification("High Priority Task 🔴", task.title);
-    }
-  });
-
-  events?.forEach(event => {
-    if (event.date === today) {
-      sendNotification("Event Today! 📅", event.title + (event.time ? " at " + event.time : ""));
-    }
-    if (event.date === tomorrow) {
-      sendNotification("Event Tomorrow 🗓️", event.title + (event.time ? " at " + event.time : ""));
-    }
-  });
-};
-
 export default function App() {
   const [messages, setMessages] = useState([{ role:"assistant", content:"Good morning! I am MAPA. Speak or type in any Indian language. Click Calendar, Tasks or Notes to manage your day!" }]);
   const [input, setInput] = useState("");
