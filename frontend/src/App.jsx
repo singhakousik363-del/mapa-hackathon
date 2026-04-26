@@ -97,7 +97,7 @@ export default function App() {
       const res = await fetch(`${API}/chat`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ message:msg, session_id:sessionId }) });
       const data = await res.json();
       setSessionId(data.session_id);
-      setMessages(prev => [...prev, { role:"assistant", content:data.response, agents:data.agents_called }]);
+      setMessages(prev => [...prev, { role:"assistant", content:data.response, agents:data.agents_called, results:data.results }]);
     } catch { setMessages(prev => [...prev, { role:"assistant", content:"Could not reach the server." }]); }
     setLoading(false); inputRef.current?.focus();
   };
@@ -143,6 +143,35 @@ export default function App() {
             <div style={{ maxWidth:"66%", display:"flex", flexDirection:"column", gap:5, alignItems:msg.role==="user"?"flex-end":"flex-start" }}>
               {msg.agents?.length>0 && <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>{msg.agents.map(a=>{const s=AGENT_STYLES[a]||{bg:"rgba(0,0,0,0.3)",color:"#fff",label:a,border:"rgba(255,255,255,0.2)"};return <span key={a} style={{ background:s.bg, color:s.color, border:`1px solid ${s.border}`, fontSize:11, padding:"2px 9px", borderRadius:6, fontFamily:"Lato,sans-serif", display:"flex", alignItems:"center", gap:4 }}>{AGENT_ICONS[a]||"•"} {s.label}</span>;})}</div>}
               <div style={{ background:msg.role==="user"?"rgba(140,60,0,0.72)":"rgba(0,0,0,0.48)", backdropFilter:"blur(8px)", color:"rgba(255,245,210,0.97)", padding:"11px 16px", borderRadius:msg.role==="user"?"17px 17px 3px 17px":"17px 17px 17px 3px", fontSize:14, lineHeight:1.75, border:msg.role==="user"?"1px solid rgba(255,150,50,0.25)":"1px solid rgba(255,255,255,0.08)", fontFamily:"Lato,sans-serif", fontWeight:300 }}>{msg.content}</div>
+              {msg.results && Object.values(msg.results).some(r => Array.isArray(r?.data) && r.data.length>0) && (
+                <div style={{ display:"flex", flexDirection:"column", gap:6, marginTop:6, width:"100%" }}>
+                  {Object.entries(msg.results).flatMap(([agent, r]) => {
+                    if (!Array.isArray(r?.data) || r.data.length === 0) return [];
+                    return r.data.map((item, idx) => {
+                      const isEvent = agent === "calendar_agent";
+                      const isTask = agent === "task_agent";
+                      const isNote = agent === "notes_agent";
+                      const accent = isEvent ? "rgba(255,200,80,0.5)" : isTask ? "rgba(100,220,140,0.5)" : "rgba(150,200,255,0.5)";
+                      const icon = isEvent ? "📅" : isTask ? "✓" : "📝";
+                      return (
+                        <div key={agent+"-"+idx} style={{ background:"rgba(0,0,0,0.42)", backdropFilter:"blur(6px)", border:"1px solid rgba(255,255,255,0.08)", borderLeft:`2px solid ${accent}`, borderRadius:9, padding:"9px 12px", fontFamily:"Lato,sans-serif", fontSize:13, color:"rgba(255,235,185,0.94)", display:"flex", flexDirection:"column", gap:3 }}>
+                          <div style={{ fontWeight:400, fontSize:13.5 }}>{icon} {item.title || item.content || "(untitled)"}</div>
+                          {(item.date || item.due_date || item.time || item.priority) && (
+                            <div style={{ fontSize:11.5, color:"rgba(255,210,140,0.7)", display:"flex", gap:10, flexWrap:"wrap" }}>
+                              {item.date && <span>📆 {item.date}</span>}
+                              {item.time && <span>🕘 {item.time}</span>}
+                              {item.due_date && <span>📆 due {item.due_date}</span>}
+                              {item.priority && <span>⚡ {item.priority}</span>}
+                              {item.status && item.status !== "pending" && <span>✓ {item.status}</span>}
+                            </div>
+                          )}
+                          {isNote && item.content && <div style={{ fontSize:12, color:"rgba(255,235,185,0.7)", marginTop:2, maxHeight:48, overflow:"hidden", textOverflow:"ellipsis" }}>{item.content.slice(0,140)}{item.content.length>140?"...":""}</div>}
+                        </div>
+                      );
+                    });
+                  })}
+                </div>
+              )}
             </div>
           </div>
         ))}
