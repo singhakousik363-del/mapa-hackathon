@@ -49,7 +49,18 @@ export default function App() {
   const [messages, setMessages] = useState([{ role:"assistant", content:"Good morning! I am MAPA. Speak or type in any Indian language. Click Calendar, Tasks or Notes to manage your day!" }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sessionId, setSessionId] = useState(null);
+  const [sessionId, setSessionId] = useState(() => {
+    try {
+      let s = localStorage.getItem("mapa_session_id");
+      if (!s) {
+        s = "session_" + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem("mapa_session_id", s);
+      }
+      return s;
+    } catch (e) {
+      return "default";
+    }
+  });
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [bgIndex, setBgIndex] = useState(0);
   const [selectedLang, setSelectedLang] = useState(() => {

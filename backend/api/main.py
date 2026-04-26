@@ -69,6 +69,13 @@ async def complete_task(task_id: str):
     await db.update(task_id, {"status": "completed"})
     return {"success": True, "task_id": task_id}
 
+@app.delete("/events/{event_id}")
+async def delete_event(event_id: str):
+    from tools.firestore_client import FirestoreClient
+    db = FirestoreClient("events")
+    await db.delete(event_id)
+    return {"success": True, "event_id": event_id}
+
 @app.delete("/notes/{note_id}")
 async def delete_note(note_id: str):
     from tools.firestore_client import FirestoreClient

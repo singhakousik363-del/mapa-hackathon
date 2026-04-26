@@ -24,9 +24,9 @@ export default function CalendarPage({ sessionId, onClose }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchData = () => {
     if (!sessionId) { setLoading(false); return; }
-    fetch(`${API}/session/${sessionId}/summary`)
+    fetch(`${API}/session/${sessionId || "default"}/summary?scope=all`)
       .then(r => r.json())
       .then(data => {
         setEvents(data.events || []);
@@ -34,7 +34,19 @@ export default function CalendarPage({ sessionId, onClose }) {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [sessionId]);
+  };
+
+  useEffect(() => { fetchData(); }, [sessionId]);
+
+  const deleteEvent = async (event) => {
+    if (!confirm(`Delete event "${event.title}"?`)) return;
+    try {
+      await fetch(`${API}/events/${event.id}`, { method: "DELETE" });
+      fetchData();
+    } catch(e) {
+      alert("Could not delete event. Please try again.");
+    }
+  };
 
   const prevMonth = () => {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
@@ -185,9 +197,14 @@ export default function CalendarPage({ sessionId, onClose }) {
                       <div style={{ marginBottom:14 }}>
                         <div style={{ fontSize:10, color:"rgba(255,180,60,0.6)", fontFamily:"'Lato',sans-serif", letterSpacing:"0.1em", marginBottom:8 }}>EVENTS</div>
                         {selectedItems.events.map((e,i) => (
-                          <div key={i} style={{ background:"rgba(255,180,60,0.1)", border:"1px solid rgba(255,180,60,0.2)", borderRadius:8, padding:"8px 10px", marginBottom:6 }}>
-                            <div style={{ fontSize:12, color:"rgba(255,235,180,0.92)", fontFamily:"'Lato',sans-serif", fontWeight:400 }}>{e.title}</div>
-                            {e.time && <div style={{ fontSize:11, color:"rgba(255,180,60,0.6)", fontFamily:"'Lato',sans-serif", marginTop:2 }}>🕐 {e.time}</div>}
+                          <div key={i} style={{ background:"rgba(255,180,60,0.1)", border:"1px solid rgba(255,180,60,0.2)", borderRadius:8, padding:"8px 10px", marginBottom:6, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8 }}>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontSize:12, color:"rgba(255,235,180,0.92)", fontFamily:"'Lato',sans-serif", fontWeight:400 }}>{e.title}</div>
+                              {e.time && <div style={{ fontSize:11, color:"rgba(255,180,60,0.6)", fontFamily:"'Lato',sans-serif", marginTop:2 }}>🕐 {e.time}</div>}
+                            </div>
+                            <button onClick={() => deleteEvent(e)} title="Delete event" style={{ width:24, height:24, borderRadius:6, border:"none", background:"transparent", cursor:"pointer", color:"rgba(255,120,100,0.55)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, padding:0, transition:"color 0.15s" }} onMouseEnter={ev => ev.target.style.color="rgba(255,120,100,1)"} onMouseLeave={ev => ev.target.style.color="rgba(255,120,100,0.55)"}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
                           </div>
                         ))}
                       </div>
