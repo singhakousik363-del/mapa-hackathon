@@ -17,6 +17,16 @@ async def lifespan(app):
 app = FastAPI(title="MAPA API", version="2.0.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+# Rate limiting: protect against abuse / runaway costs
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi import Request
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 class ChatRequest(BaseModel):
     message: str
     session_id: str | None = None
@@ -30,7 +40,8 @@ async def list_tools():
     return {"tools": agent.registry.list_tools()}
 
 @app.post("/chat")
-async def chat(req: ChatRequest):
+@limiter.limit("20/minute")
+async def chat(request: Request, req: ChatRequest):
     session_id = req.session_id or str(uuid.uuid4())
     try:
         result = await agent.run(req.message, session_id)
@@ -92,7 +103,8 @@ class TaskCreate(BaseModel):
     session_id: str = "default"
 
 @app.post("/tasks")
-async def create_task_direct(req: TaskCreate):
+@limiter.limit("30/minute")
+async def create_task_direct(request: Request, req: TaskCreate):
     """Direct task creation. Bypasses Gemini for structured form input."""
     title = (req.title or "").strip()
     if not title:
