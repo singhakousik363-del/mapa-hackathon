@@ -1,0 +1,6 @@
+node_modules
+dist
+.env.local
+.firebase
+.git
+README.md
