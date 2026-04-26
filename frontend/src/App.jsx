@@ -52,7 +52,20 @@ export default function App() {
   const [sessionId, setSessionId] = useState(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [bgIndex, setBgIndex] = useState(0);
-  const [selectedLang, setSelectedLang] = useState(INDIAN_LANGUAGES[0]);
+  const [selectedLang, setSelectedLang] = useState(() => {
+    try {
+      const saved = localStorage.getItem("mapa_voice_lang");
+      if (saved) {
+        const found = INDIAN_LANGUAGES.find(l => l.code === saved);
+        if (found) return found;
+      }
+      const browserLang = (navigator.language || "en").toLowerCase();
+      const match = INDIAN_LANGUAGES.find(l => browserLang.startsWith(l.code.split("-")[0]));
+      return match || INDIAN_LANGUAGES[0];
+    } catch (e) {
+      return INDIAN_LANGUAGES[0];
+    }
+  });
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -114,7 +127,7 @@ export default function App() {
               <div style={{ position:"absolute", top:"110%", right:0, background:"rgba(8,8,8,0.95)", backdropFilter:"blur(20px)", border:"1px solid rgba(255,200,100,0.15)", borderRadius:12, overflow:"hidden", zIndex:200, width:195, boxShadow:"0 12px 40px rgba(0,0,0,0.7)", maxHeight:340, overflowY:"auto" }}>
                 <div style={{ padding:"8px 14px 6px", fontSize:10, color:"rgba(255,200,100,0.5)", fontFamily:"Lato,sans-serif", letterSpacing:"0.1em", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>SELECT LANGUAGE</div>
                 {INDIAN_LANGUAGES.map(lang => (
-                  <button key={lang.code} className="lang-opt" onClick={()=>{setSelectedLang(lang);setShowLangMenu(false);}} style={{ width:"100%", padding:"9px 14px", background:lang.code===selectedLang.code?"rgba(255,180,60,0.18)":"transparent", border:"none", borderBottom:"1px solid rgba(255,255,255,0.04)", color:"rgba(255,235,185,0.92)", fontSize:13, cursor:"pointer", fontFamily:"Lato,sans-serif", textAlign:"left", display:"flex", justifyContent:"space-between" }}>
+                  <button key={lang.code} className="lang-opt" onClick={()=>{setSelectedLang(lang);setShowLangMenu(false);try{localStorage.setItem("mapa_voice_lang",lang.code);}catch(e){}}} style={{ width:"100%", padding:"9px 14px", background:lang.code===selectedLang.code?"rgba(255,180,60,0.18)":"transparent", border:"none", borderBottom:"1px solid rgba(255,255,255,0.04)", color:"rgba(255,235,185,0.92)", fontSize:13, cursor:"pointer", fontFamily:"Lato,sans-serif", textAlign:"left", display:"flex", justifyContent:"space-between" }}>
                     <span>{lang.native}</span><span style={{ fontSize:10, opacity:0.45 }}>{lang.label}</span>
                   </button>
                 ))}

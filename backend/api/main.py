@@ -77,3 +77,42 @@ async def delete_note(note_id: str):
     return {"success": True, "deleted": note_id}
 
 
+
+class TaskCreate(BaseModel):
+    title: str
+    priority: str = "medium"
+    due_date: str | None = None
+    session_id: str = "default"
+
+@app.post("/tasks")
+async def create_task_direct(req: TaskCreate):
+    """Direct task creation. Bypasses Gemini for structured form input."""
+    title = (req.title or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Title required")
+
+    from tools.firestore_client import FirestoreClient
+    from datetime import datetime, timezone
+
+    db = FirestoreClient("tasks")
+
+    existing = await db.list_by_session(req.session_id)
+    duplicate = False
+    for t in existing:
+        if (t.get("title") or "").strip().lower() == title.lower():
+            duplicate = True
+            break
+    if duplicate:
+        raise HTTPException(status_code=409, detail="Task '" + title + "' already exists in this session")
+
+    priority = req.priority if req.priority in ("low", "medium", "high") else "medium"
+    doc_data = {
+        "title": title,
+        "priority": priority,
+        "due_date": req.due_date or None,
+        "status": "pending",
+        "session_id": req.session_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    doc_id = await db.create(doc_data)
+    return {"success": True, "id": doc_id, "data": {**doc_data, "id": doc_id}}

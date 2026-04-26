@@ -37,15 +37,28 @@ export default function TasksPage({ sessionId, onClose }) {
     if (!newTitle.trim()) return;
     setSaving(true);
     try {
-      await fetch(`${API}/chat`, {
+      const res = await fetch(`${API}/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: `Add a ${newPriority} priority task: ${newTitle}${newDueDate?` due on ${newDueDate}`:""}${newDesc?`. Description: ${newDesc}`:""}`, session_id: sessionId }),
+        body: JSON.stringify({
+          title: newTitle.trim(),
+          priority: newPriority,
+          due_date: newDueDate || null,
+          session_id: sessionId || "default"
+        }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Failed to create task. Please try again.");
+        setSaving(false);
+        return;
+      }
       setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc("");
       setShowAdd(false);
-      setTimeout(fetchTasks, 800);
-    } catch(e) {}
+      fetchTasks();
+    } catch(e) {
+      alert("Network error. Please check your connection.");
+    }
     setSaving(false);
   };
 
