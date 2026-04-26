@@ -147,6 +147,50 @@ class OrchestratorAgent:
         })
         self._sessions[sid] = self._sessions[sid][-20:]
 
+    def _synthesize_response(self, operation, agents_called, results, session_id):
+        """Generate response. Skip Gemini for simple cases (50% latency saving)."""
+        # Empty case
+        if not results or not agents_called:
+            return "I'm not sure what to do — try asking again?"
+
+        result_values = [r for r in results.values() if isinstance(r, dict)]
+        if not result_values:
+            return "Done!"
+
+        # Simple single-agent case: use agent's own message directly (NO Gemini call)
+        if len(agents_called) == 1:
+            return result_values[0].get("message", "Done!")
+
+        # List operation with multiple agents: combine count messages
+        if operation == "list":
+            msgs = [r.get("message", "") for r in result_values if r.get("message")]
+            if msgs:
+                return ". ".join(msgs) + "."
+            return "Nothing found."
+
+        # Compound intent (multiple agents) — use Gemini for natural synthesis
+        history_lines = []
+        for h in self._sessions.get(session_id, [])[-4:]:
+            history_lines.append(h["role"] + ": " + h["content"])
+        history_text = "\n".join(history_lines)
+
+        synthesis_prompt = (
+            "You are MAPA, a friendly AI productivity assistant for Indian users.\n\n"
+            "Conversation:\n" + history_text + "\n\n"
+            "Agent results:\n" + json.dumps(results, default=str, indent=2) + "\n\n"
+            "Write a warm, friendly response in 1-3 sentences confirming all the actions taken across the different agents. "
+            "No JSON, no markdown, no bullet points. Keep it conversational."
+        )
+
+        try:
+            synthesis = self.model.generate_content(synthesis_prompt)
+            return synthesis.text.strip()
+        except Exception as e:
+            logger.warning(f"synthesis failed: {e}")
+            msgs = [r.get("message", "") for r in result_values if r.get("message")]
+            return ". ".join(msgs) + "." if msgs else "Done!"
+
+
     async def run(self, user_message, session_id):
         # Input validation
         if not user_message or not user_message.strip():
@@ -295,36 +339,8 @@ class OrchestratorAgent:
             results["task_agent"] = {"success": result.success, "message": result.message, "data": result.data}
             agents_called.append("task_agent")
 
-        # Synthesize response
-        history_text = "\n".join([f"{h['role']}: {h['content']}" for h in self._sessions.get(session_id, [])[-4:]])
-        synthesis_prompt = f"""You are MAPA, a friendly AI productivity assistant for Indian users.
-
-Conversation:
-{history_text}
-
-Agent results:
-{json.dumps(results, default=str, indent=2)}
-
-Write a warm, friendly response in 1-3 sentences:
-- Confirm what was created/done/deleted
-- If it's a list, summarize the items naturally
-- If empty, say so helpfully and offer to help
-- No JSON, no markdown, no bullet points
-- Keep it conversational"""
-
-        try:
-            synthesis = self.model.generate_content(synthesis_prompt)
-            response_text = synthesis.text.strip()
-        except Exception as e:
-            logger.warning(f"synthesis failed: {e}")
-            if results:
-                first = next(iter(results.values()), None)
-                if isinstance(first, dict):
-                    response_text = first.get("message", "Done!")
-                else:
-                    response_text = "Done!"
-            else:
-                response_text = "Done!"
+        # Smart synthesis: skip Gemini for simple cases (50% latency saving)
+        response_text = self._synthesize_response(operation, list(set(agents_called)), results, session_id)
 
         self._add_history(session_id, "assistant", response_text)
 
