@@ -127,6 +127,22 @@ Rules:
         }
 
 
+
+def _smart_join(msgs):
+    """Join messages with proper punctuation, preserving ? and !."""
+    parts = [m.strip() for m in msgs if m and m.strip()]
+    if not parts:
+        return "Done!"
+    result = parts[0]
+    for p in parts[1:]:
+        if result and result[-1] in "?!.":
+            result = result + " " + p
+        else:
+            result = result + ". " + p
+    if result and result[-1] not in ".?!":
+        result = result + "."
+    return result
+
 class OrchestratorAgent:
     def __init__(self):
         _ensure_gemini()
@@ -165,7 +181,7 @@ class OrchestratorAgent:
         if operation == "list":
             msgs = [r.get("message", "") for r in result_values if r.get("message")]
             if msgs:
-                return ". ".join(msgs) + "."
+                return _smart_join(msgs)
             return "Nothing found."
 
         # Compound intent (multiple agents) — use Gemini for natural synthesis
@@ -188,7 +204,7 @@ class OrchestratorAgent:
         except Exception as e:
             logger.warning(f"synthesis failed: {e}")
             msgs = [r.get("message", "") for r in result_values if r.get("message")]
-            return ". ".join(msgs) + "." if msgs else "Done!"
+            return _smart_join(msgs) if msgs else "Done!"
 
 
     async def run(self, user_message, session_id):
@@ -212,20 +228,20 @@ class OrchestratorAgent:
             from tools.firestore_client import FirestoreClient
             if list_type in ["tasks", "all", None]:
                 tasks = await FirestoreClient("tasks").list_all()
-                results["task_agent"] = {"success": True, "message": f"{len(tasks)} tasks found", "data": tasks}
+                results["task_agent"] = {"success": True, "message": (f"You have {len(tasks)} task{'s' if len(tasks)!=1 else ''}." if tasks else "No tasks yet. Try saying 'remind me to call mom' to add one."), "data": tasks}
                 agents_called.append("task_agent")
             if list_type in ["events", "all"]:
                 events = await FirestoreClient("events").list_all()
-                results["calendar_agent"] = {"success": True, "message": f"{len(events)} events found", "data": events}
+                results["calendar_agent"] = {"success": True, "message": (f"You have {len(events)} event{'s' if len(events)!=1 else ''}." if events else "Your calendar is clear. Want to schedule something?"), "data": events}
                 agents_called.append("calendar_agent")
             if list_type in ["notes", "all"]:
                 notes = await FirestoreClient("notes").list_all()
-                results["notes_agent"] = {"success": True, "message": f"{len(notes)} notes found", "data": notes}
+                results["notes_agent"] = {"success": True, "message": (f"You have {len(notes)} note{'s' if len(notes)!=1 else ''}." if notes else "No notes saved. Capture an idea anytime."), "data": notes}
                 agents_called.append("notes_agent")
             if not agents_called:
                 from tools.firestore_client import FirestoreClient
                 tasks = await FirestoreClient("tasks").list_all()
-                results["task_agent"] = {"success": True, "message": f"{len(tasks)} tasks found", "data": tasks}
+                results["task_agent"] = {"success": True, "message": (f"You have {len(tasks)} task{'s' if len(tasks)!=1 else ''}." if tasks else "No tasks yet. Try saying 'remind me to call mom' to add one."), "data": tasks}
                 agents_called.append("task_agent")
 
         # Handle CREATE operations
