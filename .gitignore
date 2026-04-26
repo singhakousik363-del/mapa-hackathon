@@ -9,3 +9,4 @@ venv/
 
 # Local backups (do not commit)
 *.backup*
+frontend/.firebase/

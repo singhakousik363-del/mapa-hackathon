@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import CalendarPage from "./Calendar";
 import NotesPage from "./Notes";
 import TasksPage from "./Tasks";
-const API = "https://mapa-api-875352080719.asia-south1.run.app";
+const API = "https://mapa-api-637668641799.asia-south1.run.app";
 const INDIAN_LANGUAGES = [
   { code: "en-IN", label: "English", native: "English" },
   { code: "hi-IN", label: "Hindi", native: "\u0939\u093f\u0928\u094d\u0926\u0940" },
