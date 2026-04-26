@@ -23,6 +23,11 @@ export default function CalendarPage({ sessionId, onClose }) {
   const [events, setEvents] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editTime, setEditTime] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const fetchData = () => {
     if (!sessionId) { setLoading(false); return; }
@@ -46,6 +51,47 @@ export default function CalendarPage({ sessionId, onClose }) {
     } catch(e) {
       alert("Could not delete event. Please try again.");
     }
+  };
+
+  const startEditEvent = (event) => {
+    setEditingEvent(event);
+    setEditTitle(event.title || "");
+    setEditDate(event.date || "");
+    setEditTime(event.time || "09:00");
+  };
+
+  const cancelEditEvent = () => {
+    setEditingEvent(null);
+    setEditTitle("");
+    setEditDate("");
+    setEditTime("");
+  };
+
+  const saveEditEvent = async () => {
+    if (!editTitle.trim()) return;
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`${API}/events/${editingEvent.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          date: editDate || null,
+          time: editTime || null
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Could not update event.");
+        setSavingEdit(false);
+        return;
+      }
+      cancelEditEvent();
+      fetchData();
+    } catch(e) {
+      alert("Network error. Please try again.");
+    }
+    setSavingEdit(false);
   };
 
   const prevMonth = () => {
@@ -202,9 +248,14 @@ export default function CalendarPage({ sessionId, onClose }) {
                               <div style={{ fontSize:12, color:"rgba(255,235,180,0.92)", fontFamily:"'Lato',sans-serif", fontWeight:400 }}>{e.title}</div>
                               {e.time && <div style={{ fontSize:11, color:"rgba(255,180,60,0.6)", fontFamily:"'Lato',sans-serif", marginTop:2 }}>🕐 {e.time}</div>}
                             </div>
-                            <button onClick={() => deleteEvent(e)} title="Delete event" style={{ width:24, height:24, borderRadius:6, border:"none", background:"transparent", cursor:"pointer", color:"rgba(255,120,100,0.55)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, padding:0, transition:"color 0.15s" }} onMouseEnter={ev => ev.target.style.color="rgba(255,120,100,1)"} onMouseLeave={ev => ev.target.style.color="rgba(255,120,100,0.55)"}>
+                            <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                            <button onClick={() => startEditEvent(e)} title="Edit event" style={{ width:24, height:24, borderRadius:6, border:"none", background:"transparent", cursor:"pointer", color:"rgba(255,200,100,0.55)", display:"flex", alignItems:"center", justifyContent:"center", padding:0, transition:"color 0.15s" }} onMouseEnter={ev => ev.target.style.color="rgba(255,200,100,1)"} onMouseLeave={ev => ev.target.style.color="rgba(255,200,100,0.55)"}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </button>
+                            <button onClick={() => deleteEvent(e)} title="Delete event" style={{ width:24, height:24, borderRadius:6, border:"none", background:"transparent", cursor:"pointer", color:"rgba(255,120,100,0.55)", display:"flex", alignItems:"center", justifyContent:"center", padding:0, transition:"color 0.15s" }} onMouseEnter={ev => ev.target.style.color="rgba(255,120,100,1)"} onMouseLeave={ev => ev.target.style.color="rgba(255,120,100,0.55)"}>
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                             </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -237,6 +288,26 @@ export default function CalendarPage({ sessionId, onClose }) {
           </div>
         </div>
       </div>
+
+      {editingEvent && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", backdropFilter:"blur(8px)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+             onClick={ev => { if (ev.target === ev.currentTarget) cancelEditEvent(); }}>
+          <div style={{ background:"linear-gradient(160deg,rgba(28,18,8,0.97),rgba(40,28,12,0.97))", border:"1px solid rgba(255,200,100,0.3)", borderRadius:14, padding:24, width:"100%", maxWidth:420, display:"flex", flexDirection:"column", gap:12, boxShadow:"0 20px 60px rgba(0,0,0,0.7)" }}>
+            <div style={{ fontSize:18, fontFamily:"'Playfair Display',serif", color:"rgba(255,235,180,0.95)", marginBottom:4 }}>Edit Event</div>
+            <input value={editTitle} onChange={ev => setEditTitle(ev.target.value)} placeholder="Event title..." style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"10px 14px", color:"rgba(255,240,200,0.9)", fontSize:14, fontFamily:"Lato,sans-serif", outline:"none" }} />
+            <div style={{ display:"flex", gap:8 }}>
+              <input type="date" value={editDate} onChange={ev => setEditDate(ev.target.value)} style={{ flex:1, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"10px 14px", color:"rgba(255,240,200,0.9)", fontSize:13, fontFamily:"Lato,sans-serif", outline:"none", colorScheme:"dark" }} />
+              <input type="time" value={editTime} onChange={ev => setEditTime(ev.target.value)} style={{ width:120, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"10px 14px", color:"rgba(255,240,200,0.9)", fontSize:13, fontFamily:"Lato,sans-serif", outline:"none", colorScheme:"dark" }} />
+            </div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginTop:6 }}>
+              <button onClick={cancelEditEvent} style={{ padding:"9px 18px", borderRadius:9, border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.05)", color:"rgba(255,230,170,0.6)", fontSize:13, cursor:"pointer", fontFamily:"Lato,sans-serif" }}>Cancel</button>
+              <button onClick={saveEditEvent} disabled={savingEdit||!editTitle.trim()} style={{ padding:"9px 18px", borderRadius:9, border:"none", background:"linear-gradient(135deg,#ffb74d,#f57c00)", color:"white", fontSize:13, cursor:"pointer", fontFamily:"Lato,sans-serif", opacity:savingEdit||!editTitle.trim()?0.5:1 }}>
+                {savingEdit?"Saving...":"Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

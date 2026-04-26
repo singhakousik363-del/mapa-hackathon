@@ -193,3 +193,44 @@ async def update_task(request: Request, task_id: str, req: TaskUpdate):
     await db.update(task_id, updates)
     updated = await db.get(task_id)
     return {"success": True, "id": task_id, "data": updated}
+
+class EventUpdate(BaseModel):
+    title: str | None = None
+    date: str | None = None
+    time: str | None = None
+    description: str | None = None
+
+@app.patch("/events/{event_id}")
+@limiter.limit("30/minute")
+async def update_event(request: Request, event_id: str, req: EventUpdate):
+    """Update event fields. Only non-None fields are updated."""
+    from tools.firestore_client import FirestoreClient
+    db = FirestoreClient("events")
+
+    existing = await db.get(event_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    updates = {}
+    if req.title is not None:
+        title = req.title.strip()
+        if not title:
+            raise HTTPException(status_code=400, detail="Title cannot be empty")
+        existing_in_session = await db.list_by_session(existing.get("session_id", "default"))
+        for e in existing_in_session:
+            if e.get("id") != event_id and (e.get("title") or "").strip().lower() == title.lower():
+                raise HTTPException(status_code=409, detail="Another event with this title exists in this session")
+        updates["title"] = title
+    if req.date is not None:
+        updates["date"] = req.date
+    if req.time is not None:
+        updates["time"] = req.time
+    if req.description is not None:
+        updates["description"] = req.description
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+
+    await db.update(event_id, updates)
+    updated = await db.get(event_id)
+    return {"success": True, "id": event_id, "data": updated}
