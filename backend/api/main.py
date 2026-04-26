@@ -75,3 +75,21 @@ async def delete_note(note_id: str):
     db = FirestoreClient("notes")
     await db.delete(note_id)
     return {"success": True, "deleted": note_id}
+
+
+@app.post("/debug/extract")
+async def debug_extract(req: ChatRequest):
+    """DEBUG: show what extraction produces"""
+    from agents.orchestrator import smart_extract, _detect_operation_keyword
+    forced = _detect_operation_keyword(req.message)
+    extracted = smart_extract(req.message, agent.model)
+    return {
+        "message": req.message,
+        "forced_op_detected": forced,
+        "final_operation": extracted.get("operation"),
+        "extracted_tasks": extracted.get("tasks", []),
+        "extracted_events": extracted.get("events", []),
+        "extracted_notes": extracted.get("notes", []),
+        "list_type": extracted.get("list_type"),
+    }
+

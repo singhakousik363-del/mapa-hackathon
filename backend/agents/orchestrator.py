@@ -23,9 +23,36 @@ def _ensure_gemini():
         genai.configure(api_key=api_key)
         _GEMINI_CONFIGURED = True
 
+def _detect_operation_keyword(message):
+    """Pre-check for explicit operation keywords. Returns operation or None."""
+    msg = message.lower().strip()
+    delete_words = ["delete", "remove", "cancel", "drop", "discard"]
+    complete_words = ["complete", "completed", "done", "finish", "finished", "mark done"]
+    list_words = ["show", "list", "display", "view", "what are my", "what's on my", "see my"]
+    # Word-boundary check (basic)
+    for w in delete_words:
+        if msg.startswith(w + " ") or f" {w} " in f" {msg} ":
+            return "delete"
+    for w in complete_words:
+        if msg.startswith(w + " ") or f" {w} " in f" {msg} ":
+            return "complete"
+    for w in list_words:
+        if msg.startswith(w + " ") or msg == w:
+            return "list"
+    return None
+
+
 def smart_extract(message, model):
-    """Use Gemini to extract ALL intents from a natural language message."""
+    """Use Gemini to extract intents. Has keyword override + verb stripping."""
     today = datetime.now().strftime("%Y-%m-%d")
+    forced_op = _detect_operation_keyword(message)
+
+    # Build the hint outside the prompt to avoid f-string backslash issues
+    if forced_op:
+        hint = f"CRITICAL: The user's message explicitly contains a {forced_op.upper()} keyword. You MUST set operation to {forced_op!r} and extract ONLY the TARGET item (the thing being acted on), NOT the action verb. For example, 'delete buy milk' has target='buy milk', not 'delete buy milk'."
+    else:
+        hint = "Intent should be inferred from context."
+
     prompt = f"""Today is {today}. Analyze this message: "{message}"
 
 Extract ALL actions the user wants. Return ONLY valid JSON:
@@ -49,19 +76,55 @@ Rules:
 - If user says "remind me to X" -> create task
 - If user says "note/write down/remember" -> create note
 - If user says "show/list/display" -> operation=list
-- If user says "delete/remove X" -> operation=delete, put X title in tasks/events/notes array based on context
-- If user says "complete/done/finish X" -> operation=complete, put X title in tasks array
-- Extract SHORT meaningful titles, NOT the full sentence
+- If user says "delete/remove X" -> operation=delete, put X (just the target, NOT including the verb) in tasks/events/notes
+- If user says "complete/done/finish X" -> operation=complete, put X in tasks
+- Extract SHORT meaningful titles, NOT the full sentence. Strip action verbs from titles.
 - Convert relative dates: "tomorrow", "next Monday" etc to YYYY-MM-DD based on today={today}
-- If no clear action found, default to creating a task with a clean title"""
+- If no clear action found, default to creating a task with a clean title
+
+{hint}"""
 
     try:
         resp = model.generate_content(prompt)
         raw = resp.text.strip().replace("```json","").replace("```","").strip()
-        return json.loads(raw)
+        result = json.loads(raw)
+
+        # Force operation if keyword detected
+        if forced_op:
+            result["operation"] = forced_op
+            # Always strip action verbs from titles for delete/complete
+            if forced_op in ["delete", "complete"]:
+                for task in result.get("tasks", []):
+                    title = (task.get("title") or "").strip()
+                    title_lower = title.lower()
+                    for verb in ["delete ", "remove ", "cancel ", "drop ", "complete ", "completed ", "finish ", "finished ", "done ", "mark done "]:
+                        if title_lower.startswith(verb):
+                            task["title"] = title[len(verb):].strip()
+                            break
+                    # Strip trailing " task"
+                    cur = task.get("title", "")
+                    if cur.lower().endswith(" task"):
+                        task["title"] = cur[:-5].strip()
+        return result
     except Exception as e:
         logger.warning(f"smart_extract failed: {e}")
-        return {"tasks": [{"title": message[:60], "priority": "medium", "due_date": None}], "events": [], "notes": [], "operation": "create", "list_type": None}
+        # Fallback: also strip verbs from message for delete/complete
+        fallback_title = message[:60]
+        if forced_op in ["delete", "complete"]:
+            ml = fallback_title.lower().strip()
+            for verb in ["delete ", "remove ", "cancel ", "drop ", "complete ", "completed ", "finish ", "finished ", "done ", "mark done "]:
+                if ml.startswith(verb):
+                    fallback_title = fallback_title[len(verb):].strip()
+                    break
+            if fallback_title.lower().endswith(" task"):
+                fallback_title = fallback_title[:-5].strip()
+        return {
+            "tasks": [{"title": fallback_title, "priority": "medium", "due_date": None}],
+            "events": [],
+            "notes": [],
+            "operation": forced_op or "create",
+            "list_type": None
+        }
 
 
 class OrchestratorAgent:
