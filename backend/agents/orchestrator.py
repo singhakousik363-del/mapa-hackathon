@@ -230,9 +230,16 @@ class OrchestratorAgent:
 
         # Handle CREATE operations
         elif operation == "create":
+            from tools.firestore_client import FirestoreClient
             for task_data in extracted.get("tasks", []):
                 title = task_data.get("title", "").strip()
                 if not title:
+                    continue
+                # Duplicate check: skip if same-titled task exists in this session
+                existing = await FirestoreClient("tasks").list_by_session(session_id)
+                if any((t.get("title") or "").strip().lower() == title.lower() for t in existing):
+                    results["task_agent"] = {"success": False, "message": f"Task '{title}' already exists in this session", "data": None}
+                    agents_called.append("task_agent")
                     continue
                 params = {
                     "operation": "create", "title": title,
@@ -248,6 +255,12 @@ class OrchestratorAgent:
                 title = event_data.get("title", "").strip()
                 if not title:
                     continue
+                # Duplicate check: skip if same-titled event exists in this session
+                existing = await FirestoreClient("events").list_by_session(session_id)
+                if any((e.get("title") or "").strip().lower() == title.lower() for e in existing):
+                    results["calendar_agent"] = {"success": False, "message": f"Event '{title}' already exists in this session", "data": None}
+                    agents_called.append("calendar_agent")
+                    continue
                 params = {
                     "operation": "create", "title": title,
                     "date": event_data.get("date", ""),
@@ -262,6 +275,12 @@ class OrchestratorAgent:
             for note_data in extracted.get("notes", []):
                 title = note_data.get("title", "").strip()
                 if not title:
+                    continue
+                # Duplicate check: skip if same-titled note exists in this session
+                existing = await FirestoreClient("notes").list_by_session(session_id)
+                if any((n.get("title") or "").strip().lower() == title.lower() for n in existing):
+                    results["notes_agent"] = {"success": False, "message": f"Note '{title}' already exists in this session", "data": None}
+                    agents_called.append("notes_agent")
                     continue
                 params = {
                     "operation": "create", "title": title,

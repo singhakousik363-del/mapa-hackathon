@@ -8,4 +8,4 @@ node_modules/
 venv/
 
 # Local backups (do not commit)
-*.backup
+*.backup*
