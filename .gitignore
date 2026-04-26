@@ -6,3 +6,6 @@ node_modules/
 .vscode/
 .idea/
 venv/
+
+# Local backups (do not commit)
+*.backup
