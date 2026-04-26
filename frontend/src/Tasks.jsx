@@ -16,6 +16,7 @@ export default function TasksPage({ sessionId, onClose }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
   const [filter, setFilter] = useState("pending");
   const [newTitle, setNewTitle] = useState("");
   const [newPriority, setNewPriority] = useState("medium");
@@ -37,29 +38,41 @@ export default function TasksPage({ sessionId, onClose }) {
     if (!newTitle.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch(`${API}/tasks`, {
-        method: "POST",
+      const isEdit = editingTask !== null;
+      const url = isEdit ? `${API}/tasks/${editingTask.id}` : `${API}/tasks`;
+      const method = isEdit ? "PATCH" : "POST";
+      const body = isEdit
+        ? { title: newTitle.trim(), priority: newPriority, due_date: newDueDate || null }
+        : { title: newTitle.trim(), priority: newPriority, due_date: newDueDate || null, session_id: sessionId || "default" };
+      const res = await fetch(url, {
+        method: method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: newTitle.trim(),
-          priority: newPriority,
-          due_date: newDueDate || null,
-          session_id: sessionId || "default"
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(err.detail || "Failed to create task. Please try again.");
+        alert(err.detail || (isEdit ? "Failed to update task." : "Failed to create task."));
         setSaving(false);
         return;
       }
       setNewTitle(""); setNewPriority("medium"); setNewDueDate(""); setNewDesc("");
+      setEditingTask(null);
       setShowAdd(false);
       fetchTasks();
     } catch(e) {
       alert("Network error. Please check your connection.");
     }
     setSaving(false);
+  };
+
+  const startEdit = (task) => {
+    setEditingTask(task);
+    setNewTitle(task.title || "");
+    setNewPriority(task.priority || "medium");
+    setNewDueDate(task.due_date || "");
+    setNewDesc("");
+    setShowAdd(true);
+    setActiveMenu(null);
   };
 
   const completeTask = async (task) => {
@@ -129,6 +142,7 @@ export default function TasksPage({ sessionId, onClose }) {
                 </div>
                 {isOpen && (
                   <div style={{position:"absolute",right:0,top:"calc(100% + 4px)",zIndex:200,background:"rgba(10,20,10,0.98)",border:"1px solid rgba(100,220,100,0.2)",borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,0.6)",overflow:"hidden",minWidth:160}}>
+                    <button onClick={()=>startEdit(task)} style={{width:"100%",padding:"10px 16px",background:"none",border:"none",cursor:"pointer",color:"rgba(255,200,100,0.9)",fontFamily:"'Lato',sans-serif",fontSize:13,textAlign:"left",display:"flex",alignItems:"center",gap:8,borderBottom:"1px solid rgba(255,255,255,0.05)"}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit Task</button>
                     {filter==="pending" && (
                       <button onClick={()=>completeTask(task)} style={{width:"100%",padding:"10px 16px",background:"none",border:"none",cursor:"pointer",color:"rgba(100,220,100,0.9)",fontFamily:"'Lato',sans-serif",fontSize:13,textAlign:"left",display:"flex",alignItems:"center",gap:8}}
                         onMouseEnter={e=>e.currentTarget.style.background="rgba(100,220,100,0.1)"}
@@ -159,9 +173,9 @@ export default function TasksPage({ sessionId, onClose }) {
                 </div>
                 <input type="date" value={newDueDate} onChange={e=>setNewDueDate(e.target.value)} style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:10,padding:"9px 14px",color:"rgba(255,240,200,0.8)",fontSize:13,fontFamily:"'Lato',sans-serif",width:"100%",colorScheme:"dark"}}/>
                 <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                  <button onClick={()=>setShowAdd(false)} style={{padding:"9px 18px",borderRadius:9,border:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.05)",color:"rgba(255,230,170,0.6)",fontSize:13,cursor:"pointer",fontFamily:"'Lato',sans-serif"}}>Cancel</button>
+                  <button onClick={()=>{setShowAdd(false);setEditingTask(null);setNewTitle("");setNewPriority("medium");setNewDueDate("");setNewDesc("");}} style={{padding:"9px 18px",borderRadius:9,border:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.05)",color:"rgba(255,230,170,0.6)",fontSize:13,cursor:"pointer",fontFamily:"'Lato',sans-serif"}}>Cancel</button>
                   <button onClick={saveTask} disabled={saving||!newTitle.trim()} style={{padding:"9px 18px",borderRadius:9,border:"none",background:"linear-gradient(135deg,#81c784,#43a047)",color:"white",fontSize:13,cursor:"pointer",fontFamily:"'Lato',sans-serif"}}>
-                    {saving?"Saving...":"Add Task"}
+                    {saving?"Saving...":(editingTask?"Save Changes":"Add Task")}
                   </button>
                 </div>
               </div>

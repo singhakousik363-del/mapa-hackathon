@@ -152,3 +152,44 @@ async def create_task_direct(request: Request, req: TaskCreate):
     }
     doc_id = await db.create(doc_data)
     return {"success": True, "id": doc_id, "data": {**doc_data, "id": doc_id}}
+
+class TaskUpdate(BaseModel):
+    title: str | None = None
+    priority: str | None = None
+    due_date: str | None = None
+    status: str | None = None
+
+@app.patch("/tasks/{task_id}")
+@limiter.limit("30/minute")
+async def update_task(request: Request, task_id: str, req: TaskUpdate):
+    """Update task fields. Only non-None fields are updated."""
+    from tools.firestore_client import FirestoreClient
+    db = FirestoreClient("tasks")
+
+    existing = await db.get(task_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    updates = {}
+    if req.title is not None:
+        title = req.title.strip()
+        if not title:
+            raise HTTPException(status_code=400, detail="Title cannot be empty")
+        existing_in_session = await db.list_by_session(existing.get("session_id", "default"))
+        for t in existing_in_session:
+            if t.get("id") != task_id and (t.get("title") or "").strip().lower() == title.lower():
+                raise HTTPException(status_code=409, detail="Another task with this title exists in this session")
+        updates["title"] = title
+    if req.priority is not None and req.priority in ("low", "medium", "high"):
+        updates["priority"] = req.priority
+    if req.due_date is not None:
+        updates["due_date"] = req.due_date or None
+    if req.status is not None and req.status in ("pending", "completed"):
+        updates["status"] = req.status
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+
+    await db.update(task_id, updates)
+    updated = await db.get(task_id)
+    return {"success": True, "id": task_id, "data": updated}
