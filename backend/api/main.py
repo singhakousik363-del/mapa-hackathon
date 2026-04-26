@@ -1,9 +1,18 @@
 import uuid
+import time
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from agents.orchestrator import OrchestratorAgent
+
+# Structured logging config (single source of truth, picked up by Cloud Run)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger("mapa.api")
 
 agent = None
 
@@ -11,11 +20,19 @@ agent = None
 async def lifespan(app):
     global agent
     agent = OrchestratorAgent()
-    print("MAPA Orchestrator initialized")
+    logger.info("MAPA Orchestrator initialized (lifespan startup)")
     yield
 
 app = FastAPI(title="MAPA API", version="2.0.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+@app.middleware("http")
+async def log_requests(request, call_next):
+    start = time.time()
+    response = await call_next(request)
+    elapsed_ms = int((time.time() - start) * 1000)
+    logger.info(f"{request.method} {request.url.path} -> {response.status_code} ({elapsed_ms}ms)")
+    return response
 
 # Rate limiting: protect against abuse / runaway costs
 from slowapi import Limiter, _rate_limit_exceeded_handler
