@@ -25,6 +25,10 @@ export default function NotesPage({ sessionId, onClose }) {
   const [newTags, setNewTags] = useState("");
   const [saving, setSaving] = useState(false);
   const [selectedNote, setSelectedNote] = useState(null);
+  const [editingNote, setEditingNote] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const fetchNotes = () => {
     // allow loading without session
@@ -63,6 +67,45 @@ export default function NotesPage({ sessionId, onClose }) {
       setSelectedNote(null);
       setTimeout(fetchNotes, 500);
     } catch(e) {}
+  };
+
+  const startEditNote = (note) => {
+    setEditingNote(note);
+    setEditTitle(note.title || "");
+    setEditContent(note.content || "");
+  };
+
+  const cancelEditNote = () => {
+    setEditingNote(null);
+    setEditTitle("");
+    setEditContent("");
+  };
+
+  const saveEditNote = async () => {
+    if (!editTitle.trim() && !editContent.trim()) return;
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`${API}/notes/${editingNote.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTitle.trim() || "Untitled",
+          content: editContent
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Could not update note.");
+        setSavingEdit(false);
+        return;
+      }
+      cancelEditNote();
+      setSelectedNote(null);
+      setTimeout(fetchNotes, 300);
+    } catch(e) {
+      alert("Network error. Please try again.");
+    }
+    setSavingEdit(false);
   };
 
   const filtered = notes.filter(n =>
@@ -155,6 +198,9 @@ export default function NotesPage({ sessionId, onClose }) {
                   </div>
                 </div>
                 <div style={{ display:"flex", gap:6 }}>
+                  <button onClick={()=>startEditNote(selectedNote)} title="Edit note" style={{ width:30, height:30, borderRadius:8, border:"1px solid rgba(255,200,100,0.25)", background:"rgba(255,200,100,0.1)", cursor:"pointer", color:"rgba(255,210,140,0.85)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
                   <button onClick={()=>deleteNote(selectedNote)} title="Delete note" style={{ width:30, height:30, borderRadius:8, border:"1px solid rgba(255,100,80,0.25)", background:"rgba(255,80,60,0.1)", cursor:"pointer", color:"rgba(255,140,120,0.85)", display:"flex", alignItems:"center", justifyContent:"center" }}><TrashIcon/></button>
                   <button onClick={()=>setSelectedNote(null)} style={{ width:30, height:30, borderRadius:8, border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.05)", cursor:"pointer", color:"rgba(255,230,170,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}><CloseIcon/></button>
                 </div>
@@ -190,6 +236,23 @@ export default function NotesPage({ sessionId, onClose }) {
                   {saving ? "Saving..." : <><PlusIcon/> Save Note</>}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingNote && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", backdropFilter:"blur(8px)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+             onClick={ev => { if (ev.target === ev.currentTarget) cancelEditNote(); }}>
+          <div style={{ background:"linear-gradient(160deg,rgba(15,20,40,0.97),rgba(20,30,55,0.97))", border:"1px solid rgba(150,180,255,0.3)", borderRadius:14, padding:24, width:"100%", maxWidth:480, display:"flex", flexDirection:"column", gap:12, boxShadow:"0 20px 60px rgba(0,0,0,0.7)" }}>
+            <div style={{ fontSize:18, fontFamily:"'Playfair Display',serif", color:"rgba(220,235,255,0.95)", marginBottom:4 }}>Edit Note</div>
+            <input value={editTitle} onChange={ev => setEditTitle(ev.target.value)} placeholder="Note title..." style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"10px 14px", color:"rgba(220,235,255,0.95)", fontSize:14, fontFamily:"Lato,sans-serif", outline:"none" }} />
+            <textarea value={editContent} onChange={ev => setEditContent(ev.target.value)} placeholder="Note content..." rows={6} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"10px 14px", color:"rgba(220,235,255,0.95)", fontSize:14, fontFamily:"Lato,sans-serif", outline:"none", resize:"vertical", minHeight:120 }} />
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginTop:6 }}>
+              <button onClick={cancelEditNote} style={{ padding:"9px 18px", borderRadius:9, border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.05)", color:"rgba(220,235,255,0.6)", fontSize:13, cursor:"pointer", fontFamily:"Lato,sans-serif" }}>Cancel</button>
+              <button onClick={saveEditNote} disabled={savingEdit||(!editTitle.trim()&&!editContent.trim())} style={{ padding:"9px 18px", borderRadius:9, border:"none", background:"linear-gradient(135deg,#90caf9,#5c8fd6)", color:"white", fontSize:13, cursor:"pointer", fontFamily:"Lato,sans-serif", opacity:savingEdit||(!editTitle.trim()&&!editContent.trim())?0.5:1 }}>
+                {savingEdit?"Saving...":"Save Changes"}
+              </button>
             </div>
           </div>
         </div>

@@ -234,3 +234,38 @@ async def update_event(request: Request, event_id: str, req: EventUpdate):
     await db.update(event_id, updates)
     updated = await db.get(event_id)
     return {"success": True, "id": event_id, "data": updated}
+
+class NoteUpdate(BaseModel):
+    title: str | None = None
+    content: str | None = None
+
+@app.patch("/notes/{note_id}")
+@limiter.limit("30/minute")
+async def update_note(request: Request, note_id: str, req: NoteUpdate):
+    """Update note fields. Only non-None fields are updated."""
+    from tools.firestore_client import FirestoreClient
+    db = FirestoreClient("notes")
+
+    existing = await db.get(note_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    updates = {}
+    if req.title is not None:
+        title = req.title.strip()
+        if not title:
+            raise HTTPException(status_code=400, detail="Title cannot be empty")
+        existing_in_session = await db.list_by_session(existing.get("session_id", "default"))
+        for n in existing_in_session:
+            if n.get("id") != note_id and (n.get("title") or "").strip().lower() == title.lower():
+                raise HTTPException(status_code=409, detail="Another note with this title exists in this session")
+        updates["title"] = title
+    if req.content is not None:
+        updates["content"] = req.content
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+
+    await db.update(note_id, updates)
+    updated = await db.get(note_id)
+    return {"success": True, "id": note_id, "data": updated}
