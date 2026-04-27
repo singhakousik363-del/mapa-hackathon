@@ -10,3 +10,9 @@ venv/
 # Local backups (do not commit)
 *.backup*
 frontend/.firebase/
+
+# Local ADK virtualenv (heavy, not for commit)
+backend/.adk-venv/
+
+# Local backup snapshots
+backups/

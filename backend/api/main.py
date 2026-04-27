@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from agents.orchestrator import OrchestratorAgent
+from agents.adk_orchestrator import ADKOrchestratorAgent
 
 # Structured logging config (single source of truth, picked up by Cloud Run)
 logging.basicConfig(
@@ -19,7 +19,7 @@ agent = None
 @asynccontextmanager
 async def lifespan(app):
     global agent
-    agent = OrchestratorAgent()
+    agent = ADKOrchestratorAgent()
     logger.info("MAPA Orchestrator initialized (lifespan startup)")
     yield
 
