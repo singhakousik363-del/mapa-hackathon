@@ -207,3 +207,84 @@ async def delete_note(title: str, session_id: str = "default") -> dict:
             await db.delete(n["id"])
             return {"success": True, "message": f"Note '{n.get('title')}' deleted", "data": {"id": n["id"]}}
     return {"success": False, "message": f"Note matching '{title}' not found", "data": None}
+
+
+# === SEARCH TOOLS ===
+
+async def search_all(query: str, session_id: str = "default") -> dict:
+    """Search across tasks, events, and notes by keyword.
+    
+    Performs case-insensitive substring match against titles and content.
+    Returns categorized results.
+    
+    Args:
+        query: Search query string (e.g., 'marketing', 'Kolkata', 'Q4')
+        session_id: User session ID (currently searches all sessions)
+    
+    Returns:
+        dict with tasks/events/notes lists and a friendly summary message
+    """
+    query = (query or "").strip()
+    if not query or len(query) < 2:
+        return {
+            "success": False,
+            "message": "Please provide a search query of at least 2 characters.",
+            "data": {"tasks": [], "events": [], "notes": []}
+        }
+    
+    q = query.lower()
+    
+    # Parallel-fetch all three collections
+    tasks_db = FirestoreClient("tasks")
+    events_db = FirestoreClient("events")
+    notes_db = FirestoreClient("notes")
+    
+    all_tasks = await tasks_db.list_all()
+    all_events = await events_db.list_all()
+    all_notes = await notes_db.list_all()
+    
+    # Match against title (and content for notes)
+    matched_tasks = [
+        t for t in all_tasks
+        if q in (t.get("title") or "").lower()
+    ]
+    matched_events = [
+        e for e in all_events
+        if q in (e.get("title") or "").lower()
+        or q in (e.get("description") or "").lower()
+    ]
+    matched_notes = [
+        n for n in all_notes
+        if q in (n.get("title") or "").lower()
+        or q in (n.get("content") or "").lower()
+    ]
+    
+    total = len(matched_tasks) + len(matched_events) + len(matched_notes)
+    
+    if total == 0:
+        return {
+            "success": True,
+            "message": f"No matches found for '{query}'.",
+            "data": {"tasks": [], "events": [], "notes": []}
+        }
+    
+    # Build a friendly summary
+    parts = []
+    if matched_tasks:
+        parts.append(f"{len(matched_tasks)} task{'s' if len(matched_tasks) != 1 else ''}")
+    if matched_events:
+        parts.append(f"{len(matched_events)} event{'s' if len(matched_events) != 1 else ''}")
+    if matched_notes:
+        parts.append(f"{len(matched_notes)} note{'s' if len(matched_notes) != 1 else ''}")
+    
+    summary = f"Found {' and '.join(parts)} matching '{query}'."
+    
+    return {
+        "success": True,
+        "message": summary,
+        "data": {
+            "tasks": matched_tasks,
+            "events": matched_events,
+            "notes": matched_notes,
+        }
+    }

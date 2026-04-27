@@ -12,6 +12,7 @@ from agents.adk_tools import (
     create_task, list_tasks, delete_task,
     create_event, list_events, delete_event,
     create_note, list_notes, delete_note,
+    search_all,
 )
 
 
@@ -83,6 +84,31 @@ notes_agent = LlmAgent(
 )
 
 
+
+
+# === Search Agent ===
+search_agent = LlmAgent(
+    name="search_agent",
+    model="gemini-2.5-flash",
+    description="Searches across tasks, events, and notes by keyword.",
+    instruction=(
+        "You are MAPA's Search Agent. You help users find existing items "
+        "across their tasks, events, and notes.\n\n"
+        "RESPONSIBILITIES:\n"
+        "- Use `search_all` for: 'find...', 'search for...', 'show me items about...', "
+        "'do I have anything on...', '... khuje dao' (Bengali), 'dhundo' (Hindi).\n\n"
+        "RULES:\n"
+        "- Only act on SEARCH-related intents. If the user is creating, listing, or "
+        "deleting items (rather than searching), reply with literal text 'NOT_MY_DOMAIN' "
+        "(do not call any tool).\n"
+        "- Distinguish search from list: 'list my tasks' is a list intent, but "
+        "'find tasks about X' or 'tasks about X' is search.\n"
+        "- Extract the search query from the user message and pass it as the query argument.\n"
+        "- Be concise; let the tool's message do the talking."
+    ),
+    tools=[search_all],
+)
+
 # === MAPA Orchestrator ===
 # ParallelAgent fires all three sub-agents simultaneously on each user message.
 # Each sub-agent decides whether the request is in its domain and either calls
@@ -96,5 +122,5 @@ mapa_orchestrator = ParallelAgent(
         "requests like 'schedule meeting and remind me to prepare' are "
         "handled by multiple agents firing simultaneously."
     ),
-    sub_agents=[task_agent, calendar_agent, notes_agent],
+    sub_agents=[task_agent, calendar_agent, notes_agent, search_agent],
 )
