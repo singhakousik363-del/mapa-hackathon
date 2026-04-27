@@ -269,3 +269,42 @@ async def update_note(request: Request, note_id: str, req: NoteUpdate):
     await db.update(note_id, updates)
     updated = await db.get(note_id)
     return {"success": True, "id": note_id, "data": updated}
+
+
+
+# === Due reminders endpoint (frontend polls this for browser notifications) ===
+@app.get("/tasks/due-reminders")
+async def get_due_task_reminders():
+    """Return tasks whose notify_at <= now and not yet notified.
+    Frontend polls this every 60s to fire browser notifications."""
+    from datetime import datetime, timezone
+    from tools.firestore_client import FirestoreClient
+
+    db = FirestoreClient("tasks")
+    all_tasks = await db.list_all()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    due = []
+    for t in all_tasks:
+        if t.get("notified") is True:
+            continue
+        notify_at = t.get("notify_at")
+        if not notify_at:
+            continue
+        if notify_at <= now_iso:
+            due.append({
+                "id": t.get("id"),
+                "title": t.get("title"),
+                "notify_at": notify_at,
+                "priority": t.get("priority", "medium"),
+            })
+    return {"due": due, "count": len(due)}
+
+
+@app.patch("/tasks/{task_id}/notified")
+async def mark_task_notified(task_id: str):
+    """Frontend calls this after firing notification to prevent re-fire."""
+    from tools.firestore_client import FirestoreClient
+    db = FirestoreClient("tasks")
+    await db.update(task_id, {"notified": True})
+    return {"success": True, "id": task_id}

@@ -36,6 +36,7 @@ task_agent = LlmAgent(
         "- Convert relative dates ('tomorrow', 'next Monday') to YYYY-MM-DD using today's date.\n"
         "- Default priority is 'medium' unless user says 'urgent', 'high', 'low', etc.\n"
         "- Always pass the session_id provided in the user message context if available.\n"
+        "- IMPORTANT: When the user includes an explicit clock time (e.g., 'at 5pm', 'at 9:00am', 'at 17:00'), populate notify_at as ISO 8601 (e.g., '2026-04-28T17:00:00') so a browser notification can fire at that time. If only a date with no time is given, leave notify_at unset.\n"
         "- Be concise; respond with one short confirmation line."
     ),
     tools=[create_task, list_tasks, delete_task],

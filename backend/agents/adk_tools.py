@@ -10,13 +10,14 @@ from tools.firestore_client import FirestoreClient
 
 # === TASK TOOLS ===
 
-async def create_task(title: str, priority: str = "medium", due_date: str = None, session_id: str = "default") -> dict:
+async def create_task(title: str, priority: str = "medium", due_date: str = None, notify_at: str = None, session_id: str = "default") -> dict:
     """Create a new task in Firestore.
     
     Args:
         title: Task title (required, non-empty)
         priority: One of low|medium|high (defaults to medium)
         due_date: YYYY-MM-DD format or None
+        notify_at: ISO 8601 datetime for browser notification reminder (e.g. '2026-04-28T17:00:00'). Set this if user explicitly asks to be reminded at a specific time of day.
         session_id: User session ID
     
     Returns:
@@ -41,12 +42,17 @@ async def create_task(title: str, priority: str = "medium", due_date: str = None
         "title": title,
         "priority": priority,
         "due_date": due_date or None,
+        "notify_at": notify_at or None,
+        "notified": False,
         "status": "pending",
         "session_id": session_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     doc_id = await db.create(doc_data)
-    return {"success": True, "message": f"Task '{title}' created", "data": {**doc_data, "id": doc_id}}
+    msg = f"Task '{title}' created"
+    if notify_at:
+        msg += f" with reminder at {notify_at}"
+    return {"success": True, "message": msg, "data": {**doc_data, "id": doc_id}}
 
 
 async def list_tasks(session_id: str = "default") -> dict:

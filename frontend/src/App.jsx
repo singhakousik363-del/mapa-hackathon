@@ -78,6 +78,48 @@ export default function App() {
     }
   });
   const [showLangMenu, setShowLangMenu] = useState(false);
+
+  // === Browser Notification System for Reminders ===
+  useEffect(() => {
+    // Request notification permission once on mount
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
+    // Poll for due reminders every 60 seconds
+    const checkDueReminders = async () => {
+      if (!("Notification" in window) || Notification.permission !== "granted") {
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/tasks/due-reminders`);
+        if (!res.ok) return;
+        const data = await res.json();
+        for (const task of data.due || []) {
+          const priorityIcon = task.priority === "high" ? "🔴" : task.priority === "low" ? "🟢" : "🟡";
+          new Notification(`${priorityIcon} MAPA Reminder`, {
+            body: task.title,
+            icon: "/favicon.ico",
+            tag: `mapa-reminder-${task.id}`,
+            requireInteraction: true,
+          });
+          // Mark as notified to prevent re-fire
+          fetch(`${API}/tasks/${task.id}/notified`, { method: "PATCH" }).catch(() => {});
+        }
+      } catch (err) {
+        console.error("Reminder polling error:", err);
+      }
+    };
+
+    // Initial check after 5s, then every 60s
+    const initialTimer = setTimeout(checkDueReminders, 5000);
+    const intervalTimer = setInterval(checkDueReminders, 60000);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(intervalTimer);
+    };
+  }, []);
   const [isListening, setIsListening] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
