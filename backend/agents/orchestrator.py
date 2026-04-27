@@ -216,6 +216,28 @@ class OrchestratorAgent:
 
         self._add_history(session_id, "user", user_message)
 
+        # Greeting fast-path: short conversational messages bypass Gemini extraction
+        # Prevents "hi"/"hello"/"thanks" from being misinterpreted as task creation
+        msg_norm = user_message.strip().lower().rstrip("!.?,")
+        greeting_words = {
+            "hi", "hello", "hey", "yo", "sup",
+            "namaste", "namaskar", "salaam", "salam",
+            "kemon acho", "kemon achen", "kemon",
+            "hola", "bonjour", "ciao",
+            "good morning", "good afternoon", "good evening", "good night",
+            "thanks", "thank you", "thx", "ok", "okay", "k",
+            "bye", "goodbye", "see you", "see ya"
+        }
+        first_word = msg_norm.split()[0] if msg_norm else ""
+        is_greeting = (
+            msg_norm in greeting_words or
+            first_word in {"hi", "hello", "hey", "namaste", "namaskar", "thanks", "ok", "bye"}
+        ) and len(msg_norm) < 30
+        if is_greeting:
+            response_msg = "Hi! I can help manage your tasks, calendar, and notes. Try: 'remind me to call mom tomorrow' or 'schedule team meeting at 3pm'."
+            self._add_history(session_id, "assistant", response_msg)
+            return {"response": response_msg, "agents_called": [], "results": {}, "adk_version": "2.0", "session_id": session_id}
+
         extracted = smart_extract(user_message, self.model)
         operation = extracted.get("operation", "create")
         list_type = extracted.get("list_type")
