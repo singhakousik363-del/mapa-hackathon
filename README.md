@@ -4,8 +4,6 @@
 > A genuine multi-agent AI productivity system built on Google ADK for the Google Cloud Gen AI Academy APAC Hackathon 2026.
 
 Live App: https://gen-lang-client-0349644995.web.app
-API: https://mapa-api-637668641799.asia-south1.run.app
-API Docs: https://mapa-api-637668641799.asia-south1.run.app/docs
 
 ---
 
@@ -91,8 +89,6 @@ USER (Voice + Text in 8 Indian languages)
 ---
 
 ## API Endpoints
-
-Live at https://mapa-api-637668641799.asia-south1.run.app. Interactive docs at /docs.
 
 | Endpoint | Method | Description |
 |---|---|---|
