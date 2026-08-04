@@ -3,7 +3,7 @@
 > Build in APAC. Build for the world.
 > A genuine multi-agent AI productivity system built on Google ADK for the Google Cloud Gen AI Academy APAC Hackathon 2026.
 
-Live App: https://gen-lang-client-0349644995.web.app
+
 
 ---
 
